@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 
 const Body = z.object({
   elder_name: shortText(80),
-  elder_age: z.number().int().min(40).max(120).nullable().optional(),
+  elder_age: z.number().int().min(1).max(120).nullable().optional(),
   city: shortText(80),
   language: z.enum(["English", "Hindi", "Tamil", "Telugu", "Bengali", "Marathi", "Kannada", "Other"]).default("English"),
   role: z.enum(["family", "caretaker", "elder"]).default("family"),

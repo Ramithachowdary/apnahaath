@@ -330,10 +330,10 @@ function Onboarding({ me, busy, act, invite }: { me: Me; busy: boolean; act: Act
           <form className="mt-3 grid gap-3" onSubmit={(e) => { e.preventDefault(); act(() => api("/api/households", { method: "POST", body: JSON.stringify({ elder_name: elder, elder_age: age ? Number(age) : null, city, language, role, pin }) }), "Care circle created. Next: add medicines, then invite the elder and caretaker from Care circle."); }}>
             <input className="input" placeholder="Elder's name (e.g. Kamla Devi)" value={elder} onChange={(e) => setElder(e.target.value)} aria-label="Elder's name" required />
             <div className="grid grid-cols-2 gap-3">
-              <input className="input" type="number" min={40} max={120} placeholder="Age" value={age} onChange={(e) => setAge(e.target.value)} aria-label="Elder's age" />
+              <input className="input" type="number" min={1} max={120} placeholder="Age (optional)" value={age} onChange={(e) => setAge(e.target.value)} aria-label="Elder's age" />
               <input className="input" placeholder="City" value={city} onChange={(e) => setCity(e.target.value)} aria-label="City" required />
             </div>
-            <label className="text-sm font-semibold">Language she prefers
+            <label className="text-sm font-semibold">Preferred language
               <select className="input mt-1" value={language} onChange={(e) => setLanguage(e.target.value)}>
                 {["English", "Hindi", "Tamil", "Telugu", "Bengali", "Marathi", "Kannada", "Other"].map((l) => <option key={l}>{l}</option>)}
               </select>
