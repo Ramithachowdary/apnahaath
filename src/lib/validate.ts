@@ -24,6 +24,9 @@ export async function parseBody<T extends z.ZodTypeAny>(
   return { data: parsed.data };
 }
 
+/** Password field rule. */
 export const passcode = z.string().min(4).max(64);
+/** Trimmed, non-empty text with a maximum length. */
 export const shortText = (max = 200) => z.string().trim().min(1).max(max);
+/** 24-hour HH:MM time. */
 export const hhmm = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "time must be HH:MM");

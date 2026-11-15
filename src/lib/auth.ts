@@ -50,11 +50,13 @@ function decode(raw: string | undefined): Session | null {
   }
 }
 
+/** Read and verify the signed session cookie (null when missing, tampered or expired). */
 export async function getSession(): Promise<Session | null> {
   const jar = await cookies();
   return decode(jar.get(SESSION_COOKIE)?.value);
 }
 
+/** Server-side request context: the signed-in user, the active household and their membership/role. */
 export interface Ctx {
   user: User;
   household: Household;
@@ -92,6 +94,7 @@ export async function isLoginLocked(email: string): Promise<boolean> {
   return Boolean(until && Date.parse(until) > Date.now());
 }
 
+/** Check email + password with a per-email lockout after repeated failures. */
 export async function verifyLogin(
   email: string,
   password: string,
@@ -125,21 +128,25 @@ export function sessionCookieOptions(maxAgeSeconds = SESSION_MAX_AGE_S) {
   };
 }
 
+/** Attach a fresh signed session cookie for this user and active household. */
 export function withSession(res: NextResponse, uid: string, hid: string | null): NextResponse {
   res.cookies.set(SESSION_COOKIE, encode({ uid, hid, iat: Math.floor(Date.now() / 1000) }), sessionCookieOptions());
   return res;
 }
 
+/** JSON response that clears the session cookie. */
 export function buildLogoutResponse(): NextResponse {
   const res = NextResponse.json({ ok: true });
   res.cookies.set(SESSION_COOKIE, "", { ...sessionCookieOptions(0), maxAge: 0 });
   return res;
 }
 
+/** bcrypt hash (cost 10) for a password. */
 export function hashPassword(pw: string) {
   return bcrypt.hashSync(pw, 10);
 }
 
+/** Random 10-character invite code (unambiguous alphabet) and its SHA-256 hash for storage. */
 export function newInviteCode(): { code: string; hash: string } {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   const bytes = randomBytes(10);
@@ -147,6 +154,7 @@ export function newInviteCode(): { code: string; hash: string } {
   return { code, hash: hashInviteCode(code) };
 }
 
+/** SHA-256 of a normalised (trimmed, upper-case) invite code; only the hash is stored. */
 export function hashInviteCode(code: string) {
   return createHash("sha256").update(code.trim().toUpperCase()).digest("hex");
 }

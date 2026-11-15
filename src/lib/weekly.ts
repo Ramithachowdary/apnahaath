@@ -29,8 +29,10 @@ const SummarySchema = z.object({
   caretaker: z.string().min(5).max(600),
   family: z.string().min(10).max(1200),
 });
+/** Weekly care summary wording (numbers come from code). */
 export type WeeklySummary = z.infer<typeof SummarySchema>;
 
+/** Compute the last 7 days of adherence numbers in code. */
 export async function computeWeekStats(hh: string): Promise<WeekStats> {
   const to = todayIstDateString();
   const from = addDaysIst(to, -6);
@@ -75,6 +77,7 @@ export async function computeWeekStats(hh: string): Promise<WeekStats> {
   };
 }
 
+/** Validate AI summary wording and reject dose-change suggestions. */
 export function validateWeeklySummary(
   raw: unknown,
 ): { ok: true; summary: WeeklySummary } | { ok: false; error: string } {
@@ -85,6 +88,7 @@ export function validateWeeklySummary(
   return { ok: true, summary: p.data };
 }
 
+/** Offline template weekly summary. */
 export function templateWeeklySummary(st: WeekStats, elderName: string): WeeklySummary {
   const first = elderName.split(" ")[0];
   const rate = st.rate === null ? "not enough doses yet" : `${st.rate}%`;
@@ -115,6 +119,7 @@ export function templateWeeklySummary(st: WeekStats, elderName: string): WeeklyS
   };
 }
 
+/** Phrase the weekly numbers with Adaption, with a template fallback. */
 export async function generateWeeklySummary(
   hh: string,
   elderName: string,

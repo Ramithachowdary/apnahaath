@@ -1,5 +1,6 @@
 /** Google Calendar "Add event" template URL — no API key, opens in the user's Google Calendar. */
 
+/** An appointment to open in Google Calendar. */
 export interface CalendarEvent {
   title: string;
   startIso: string;
@@ -24,6 +25,7 @@ function toUtcStamp(ms: number): string {
     .replace(/\.\d{3}Z$/, "Z");
 }
 
+/** Google Calendar "add event" template URL for an appointment (IST, default 1 hour). */
 export function googleCalendarUrl(event: CalendarEvent): string {
   const startMs = Date.parse(normalizeAppointmentIso(event.startIso));
   if (Number.isNaN(startMs)) {

@@ -1,5 +1,6 @@
 /** Asia/Kolkata helpers */
 
+/** ISO-8601 timestamp in IST (+05:30). */
 export function formatIstIso(date: Date = new Date()): string {
   const p = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Kolkata",
@@ -15,24 +16,29 @@ export function formatIstIso(date: Date = new Date()): string {
   return `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}:${get("second")}+05:30`;
 }
 
+/** Today's date in IST as YYYY-MM-DD. */
 export function todayIstDateString(): string {
   return formatIstIso().slice(0, 10);
 }
 
+/** IST timestamp for HH:MM today. */
 export function istDateTimeOnToday(hhmm: string): string {
   const day = todayIstDateString();
   const [h, m] = hhmm.split(":");
   return `${day}T${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00+05:30`;
 }
 
+/** Epoch milliseconds for an ISO timestamp. */
 export function parseIstMs(iso: string): number {
   return Date.parse(iso);
 }
 
+/** Minutes elapsed since an ISO timestamp. */
 export function minutesSince(iso: string): number {
   return (Date.now() - parseIstMs(iso)) / 60000;
 }
 
+/** Add days to an IST calendar date (YYYY-MM-DD). */
 export function addDaysIst(isoDate: string, days: number): string {
   const base = Date.parse(`${isoDate}T12:00:00+05:30`);
   const d = new Date(base + days * 86400000);

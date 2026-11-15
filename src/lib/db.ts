@@ -24,6 +24,7 @@ import { formatIstIso, istDateTimeOnToday, minutesSince, todayIstDateString } fr
  * Timestamps are stored as ISO-8601 text with explicit +05:30 offset (IST wall clock), sortable as text.
  */
 export type Arg = string | number | null;
+/** Stmt. */
 export type Stmt = { sql: string; args: Arg[] };
 interface Driver {
   query(sql: string, args: Arg[]): Promise<{ rows: Record<string, unknown>[]; rowCount: number }>;
@@ -203,6 +204,7 @@ export async function db(): Promise<Driver> {
   return d;
 }
 
+/** Query. */
 export async function query(sql: string, args: Arg[] = []) {
   return (await db()).query(sql, args);
 }
@@ -215,6 +217,7 @@ async function one<T>(sql: string, args: Arg[] = []): Promise<T | undefined> {
 async function run(sql: string, args: Arg[] = []): Promise<number> {
   return (await query(sql, args)).rowCount;
 }
+/** Batch. */
 export async function batch(stmts: Stmt[]): Promise<void> {
   await (await db()).batch(stmts);
 }
@@ -244,16 +247,20 @@ export async function createUser(u: Omit<User, "created_at">) {
     ],
   );
 }
+/** Create user (batch statement). */
 export const createUserStmt = (u: Omit<User, "created_at">): Stmt => ({
   sql: `INSERT INTO users (id,name,email,password_hash,is_demo,created_at) VALUES (?,?,?,?,?,?)`,
   args: [u.id, u.name, u.email.toLowerCase(), u.password_hash, u.is_demo, formatIstIso()],
 });
+/** Set user verified. */
 export async function setUserVerified(id: string) {
   await run(`UPDATE users SET email_verified = 1 WHERE id = ?`, [id]);
 }
+/** Set user google. */
 export async function setUserGoogle(id: string, googleId: string) {
   await run(`UPDATE users SET google_id = ?, email_verified = 1 WHERE id = ?`, [googleId, id]);
 }
+/** Update unverified user. */
 export async function updateUnverifiedUser(id: string, name: string, passwordHash: string) {
   await run(`UPDATE users SET name = ?, password_hash = ? WHERE id = ? AND email_verified = 0`, [
     name,
@@ -261,16 +268,20 @@ export async function updateUnverifiedUser(id: string, name: string, passwordHas
     id,
   ]);
 }
+/** Get user by google id. */
 export async function getUserByGoogleId(googleId: string) {
   return one<User>(`SELECT * FROM users WHERE google_id = ?`, [googleId]);
 }
+/** Otp row. */
 export type OtpRow = { user_id: string; code_hash: string; expires_at: number; attempts: number; last_sent_at: number };
+/** Get otp. */
 export async function getOtp(userId: string) {
   const r = await one<OtpRow>(`SELECT * FROM email_otps WHERE user_id = ?`, [userId]);
   return r
     ? { ...r, expires_at: Number(r.expires_at), last_sent_at: Number(r.last_sent_at), attempts: Number(r.attempts) }
     : undefined;
 }
+/** Upsert otp. */
 export async function upsertOtp(userId: string, codeHash: string, expiresAt: number, now: number) {
   await run(
     `INSERT INTO email_otps (user_id,code_hash,expires_at,attempts,last_sent_at) VALUES (?,?,?,0,?)
@@ -278,18 +289,23 @@ export async function upsertOtp(userId: string, codeHash: string, expiresAt: num
     [userId, codeHash, expiresAt, now],
   );
 }
+/** Bump otp attempts. */
 export async function bumpOtpAttempts(userId: string) {
   await run(`UPDATE email_otps SET attempts = attempts + 1 WHERE user_id = ?`, [userId]);
 }
+/** Delete otp. */
 export async function deleteOtp(userId: string) {
   await run(`DELETE FROM email_otps WHERE user_id = ?`, [userId]);
 }
+/** Get user by email. */
 export async function getUserByEmail(email: string) {
   return one<User>(`SELECT * FROM users WHERE email = ?`, [email.toLowerCase()]);
 }
+/** Get user. */
 export async function getUser(id: string) {
   return one<User>(`SELECT * FROM users WHERE id = ?`, [id]);
 }
+/** Create household (batch statement). */
 export const createHouseholdStmt = (h: Omit<Household, "created_at">): Stmt => ({
   sql: `INSERT INTO households (id,elder_name,elder_age,city,language,owner_user_id,is_demo,demo_credentials_json,created_at) VALUES (?,?,?,?,?,?,?,?,?)`,
   args: [
@@ -304,9 +320,11 @@ export const createHouseholdStmt = (h: Omit<Household, "created_at">): Stmt => (
     formatIstIso(),
   ],
 });
+/** Get household. */
 export async function getHousehold(id: string) {
   return one<Household>(`SELECT * FROM households WHERE id = ?`, [id]);
 }
+/** Add membership (batch statement). */
 export const addMembershipStmt = (m: {
   id: string;
   user_id: string;
@@ -317,12 +335,15 @@ export const addMembershipStmt = (m: {
   sql: `INSERT INTO memberships (id,user_id,household_id,role,pin_hash,created_at) VALUES (?,?,?,?,?,?)`,
   args: [m.id, m.user_id, m.household_id, m.role, m.pin_hash, formatIstIso()],
 });
+/** Get membership. */
 export async function getMembership(userId: string, householdId: string) {
   return one<Membership>(`SELECT * FROM memberships WHERE user_id = ? AND household_id = ?`, [userId, householdId]);
 }
+/** Get membership by id. */
 export async function getMembershipById(id: string) {
   return one<Membership>(`SELECT * FROM memberships WHERE id = ?`, [id]);
 }
+/** List user households. */
 export async function listUserHouseholds(userId: string) {
   return all<{ id: string; elder_name: string; city: string; is_demo: number; role: Role }>(
     `SELECT h.id, h.elder_name, h.city, h.is_demo, m.role FROM memberships m JOIN households h ON h.id = m.household_id
@@ -330,6 +351,7 @@ export async function listUserHouseholds(userId: string) {
     [userId],
   );
 }
+/** List members, scoped to one household. */
 export async function listMembers(hh: string) {
   return all<Member & { is_demo: number }>(
     `SELECT u.id, u.name, u.email, u.is_demo, m.role FROM memberships m JOIN users u ON u.id = m.user_id
@@ -337,9 +359,11 @@ export async function listMembers(hh: string) {
     [hh],
   );
 }
+/** Household has role, scoped to one household. */
 export async function householdHasRole(hh: string, role: Role) {
   return Boolean(await one(`SELECT 1 AS x FROM memberships WHERE household_id = ? AND role = ?`, [hh, role]));
 }
+/** Set membership lock. */
 export async function setMembershipLock(id: string, failed: number, until: string | null) {
   await run(`UPDATE memberships SET failed_attempts = ?, lockout_until = ? WHERE id = ?`, [failed, until, id]);
 }
@@ -358,6 +382,7 @@ export async function insertInvite(i: {
     [i.id, i.household_id, i.role, i.code_hash, i.created_by, i.expires_at, formatIstIso()],
   );
 }
+/** Get invite by hash. */
 export async function getInviteByHash(hash: string) {
   return one<{ id: string; household_id: string; role: Role; expires_at: string; used_by: string | null }>(
     `SELECT * FROM invites WHERE code_hash = ?`,
@@ -374,6 +399,7 @@ export async function consumeInvite(id: string, userId: string) {
     ])) === 1
   );
 }
+/** List invites, scoped to one household. */
 export async function listInvites(hh: string) {
   return all<{ id: string; role: Role; expires_at: string; used_by: string | null; created_at: string }>(
     `SELECT id, role, expires_at, used_by, created_at FROM invites WHERE household_id = ? ORDER BY created_at DESC LIMIT 20`,
@@ -388,9 +414,11 @@ export async function listMedicines(hh: string, activeOnly = false) {
     [hh],
   );
 }
+/** Get medicine, scoped to one household. */
 export async function getMedicine(hh: string, id: string) {
   return one<Medicine>(`SELECT * FROM medicines WHERE id = ? AND household_id = ?`, [id, hh]);
 }
+/** Insert medicine (batch statement). */
 export const insertMedicineStmt = (m: Medicine): Stmt => ({
   sql: `INSERT INTO medicines (id,household_id,name,brand_hi,dose,schedule_time,instructions,color_band,active,notes) VALUES (?,?,?,?,?,?,?,?,?,?)`,
   args: [
@@ -406,14 +434,17 @@ export const insertMedicineStmt = (m: Medicine): Stmt => ({
     m.notes,
   ],
 });
+/** Insert medicine. */
 export async function insertMedicine(m: Medicine) {
   await batch([insertMedicineStmt(m)]);
 }
+/** Set medicine active, scoped to one household. */
 export async function setMedicineActive(hh: string, id: string, active: number) {
   await run(`UPDATE medicines SET active = ? WHERE id = ? AND household_id = ?`, [active, id, hh]);
   if (!active)
     await run(`DELETE FROM dose_slots WHERE medicine_id = ? AND household_id = ? AND status = 'pending'`, [id, hh]);
 }
+/** Update medicine schedule, scoped to one household. */
 export async function updateMedicineSchedule(hh: string, id: string, t: string) {
   await run(`UPDATE medicines SET schedule_time = ? WHERE id = ? AND household_id = ?`, [t, id, hh]);
   await run(
@@ -421,6 +452,7 @@ export async function updateMedicineSchedule(hh: string, id: string, t: string) 
     [istDateTimeOnToday(t), id, hh],
   );
 }
+/** Slot id for. */
 export function slotIdFor(medId: string, day = todayIstDateString()) {
   return `${medId}-${day.replaceAll("-", "")}`;
 }
@@ -435,7 +467,9 @@ export async function ensureTodaySlots(hh: string) {
     })),
   );
 }
+/** Slot row. */
 export type SlotRow = DoseSlot & { medicine_name: string; brand_hi: string; color_band: string; instructions: string };
+/** List dose slots, scoped to one household. */
 export async function listDoseSlots(hh: string, day = todayIstDateString()) {
   return all<SlotRow>(
     `SELECT d.*, m.name as medicine_name, m.brand_hi, m.color_band, m.dose as med_dose, m.instructions
@@ -444,6 +478,7 @@ export async function listDoseSlots(hh: string, day = todayIstDateString()) {
     [hh, day],
   );
 }
+/** List recent slots, scoped to one household. */
 export async function listRecentSlots(hh: string, sinceDay: string) {
   return all<SlotRow>(
     `SELECT d.*, m.name as medicine_name, m.brand_hi, m.color_band, m.instructions
@@ -452,9 +487,11 @@ export async function listRecentSlots(hh: string, sinceDay: string) {
     [hh, sinceDay],
   );
 }
+/** Get dose slot, scoped to one household. */
 export async function getDoseSlot(hh: string, id: string) {
   return one<DoseSlot>(`SELECT * FROM dose_slots WHERE id = ? AND household_id = ?`, [id, hh]);
 }
+/** Update dose slot status. */
 export async function updateDoseSlotStatus(
   hh: string,
   id: string,
@@ -481,6 +518,7 @@ export type EventInput = {
   payload: unknown;
   created_at?: string;
 };
+/** Insert event (batch statement), scoped to one household. */
 export const insertEventStmt = (hh: string, e: EventInput): Stmt => ({
   sql: `INSERT INTO care_events (id,household_id,type,actor_role,actor_name,medicine_id,dose_slot_id,appointment_id,payload_json,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)`,
   args: [
@@ -496,9 +534,11 @@ export const insertEventStmt = (hh: string, e: EventInput): Stmt => ({
     e.created_at ?? formatIstIso(),
   ],
 });
+/** Insert event, scoped to one household. */
 export async function insertEvent(hh: string, e: EventInput) {
   await batch([insertEventStmt(hh, e)]);
 }
+/** List events, scoped to one household. */
 export async function listEvents(hh: string, limit = 50) {
   return all<CareEvent>(`SELECT * FROM care_events WHERE household_id = ? ORDER BY created_at DESC LIMIT ?`, [
     hh,
@@ -510,15 +550,18 @@ export async function listEvents(hh: string, limit = 50) {
 export async function listAppointments(hh: string) {
   return all<Appointment>(`SELECT * FROM appointments WHERE household_id = ? ORDER BY scheduled_at`, [hh]);
 }
+/** Get appointment, scoped to one household. */
 export async function getAppointment(hh: string, id: string) {
   return one<Appointment>(`SELECT * FROM appointments WHERE id = ? AND household_id = ?`, [id, hh]);
 }
+/** Upsert appointment (batch statement). */
 export const upsertAppointmentStmt = (a: Appointment): Stmt => ({
   sql: `INSERT INTO appointments (id,household_id,doctor,place,scheduled_at,notes) VALUES (?,?,?,?,?,?)
         ON CONFLICT(id) DO UPDATE SET doctor=excluded.doctor, place=excluded.place, scheduled_at=excluded.scheduled_at, notes=excluded.notes
         WHERE appointments.household_id = excluded.household_id`,
   args: [a.id, a.household_id, a.doctor, a.place, a.scheduled_at, a.notes],
 });
+/** Upsert appointment. */
 export async function upsertAppointment(a: Appointment) {
   await batch([upsertAppointmentStmt(a)]);
 }
@@ -527,9 +570,11 @@ export async function upsertAppointment(a: Appointment) {
 export async function listDecisionCards(hh: string) {
   return all<DecisionCard>(`SELECT * FROM decision_cards WHERE household_id = ? ORDER BY created_at DESC`, [hh]);
 }
+/** Get decision card, scoped to one household. */
 export async function getDecisionCard(hh: string, id: string) {
   return one<DecisionCard>(`SELECT * FROM decision_cards WHERE id = ? AND household_id = ?`, [id, hh]);
 }
+/** Insert decision card (batch statement). */
 export const insertDecisionCardStmt = (c: DecisionCard): Stmt => ({
   sql: `INSERT INTO decision_cards (id,household_id,source_event_id,severity,title,elder_line_hi,caretaker_line_hi,family_line_en,tell_doctor,disclaimer,emergency_line,cached,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
   args: [
@@ -548,6 +593,7 @@ export const insertDecisionCardStmt = (c: DecisionCard): Stmt => ({
     c.created_at,
   ],
 });
+/** Insert decision card. */
 export async function insertDecisionCard(c: DecisionCard) {
   await batch([insertDecisionCardStmt(c)]);
 }
@@ -576,6 +622,7 @@ export async function insertOutbox(r: ReminderOutbox): Promise<boolean> {
   );
   return n === 1;
 }
+/** Update outbox status. */
 export async function updateOutboxStatus(id: string, status: ReminderOutbox["status"], error: string | null = null) {
   await run(`UPDATE reminder_outbox SET status = ?, sent_at = ?, error = ? WHERE id = ?`, [
     status,
@@ -615,6 +662,7 @@ export async function getAdherenceStats(hh: string): Promise<AdherenceStats> {
 export async function listProposals(hh: string) {
   return all<Proposal>(`SELECT * FROM proposals WHERE household_id = ? ORDER BY created_at DESC`, [hh]);
 }
+/** Insert proposal. */
 export async function insertProposal(
   hh: string,
   p: { id: string; kind: string; medicine_id: string | null; payload: unknown; created_by: string },
@@ -624,9 +672,11 @@ export async function insertProposal(
     [p.id, hh, p.kind, p.medicine_id, JSON.stringify(p.payload), p.created_by, formatIstIso()],
   );
 }
+/** Update proposal status, scoped to one household. */
 export async function updateProposalStatus(hh: string, id: string, status: string) {
   await run(`UPDATE proposals SET status = ? WHERE id = ? AND household_id = ?`, [status, id, hh]);
 }
+/** Get proposal, scoped to one household. */
 export async function getProposal(hh: string, id: string) {
   return one<Proposal>(`SELECT * FROM proposals WHERE id = ? AND household_id = ?`, [id, hh]);
 }
@@ -635,6 +685,7 @@ export async function getProposal(hh: string, id: string) {
 export async function getAuthMeta(key: string): Promise<string> {
   return (await one<{ value: string }>(`SELECT value FROM auth_meta WHERE key = ?`, [key]))?.value ?? "";
 }
+/** Set auth meta. */
 export async function setAuthMeta(key: string, value: string) {
   await run(`INSERT INTO auth_meta (key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`, [
     key,

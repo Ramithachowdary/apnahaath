@@ -89,6 +89,7 @@ function stripFences(text: string): string {
     .replace(/\s*```$/, "");
 }
 
+/** A Gemini safety card after zod validation (warn-only). */
 export type GeneratedCard = z.infer<typeof CardSchema>;
 
 const FORBIDDEN = [
@@ -118,11 +119,13 @@ const SAFE_ADVICE = [
   /\b(do not|don't|dont|never) (change|adjust|alter) (any|a|the|her|his|your) (dose|dosage|medicine|medication)s?\b/gi,
 ];
 
+/** True when text suggests starting, stopping or changing a dose; such AI output is discarded. */
 export function rejectsMutation(text: string): boolean {
   const scrubbed = SAFE_ADVICE.reduce((t, r) => t.replace(r, " "), text);
   return FORBIDDEN.some((r) => r.test(scrubbed));
 }
 
+/** Validate a Gemini card against the schema and the warn-only (no dose change) rule. */
 export function validateWarnOnlyCard(raw: unknown): { ok: true; card: GeneratedCard } | { ok: false; error: string } {
   const parsed = CardSchema.safeParse(raw);
   if (!parsed.success) {
@@ -142,6 +145,7 @@ export function validateWarnOnlyCard(raw: unknown): { ok: true; card: GeneratedC
   return { ok: true, card: c };
 }
 
+/** Deterministic offline card for the Brufen + Ecosprin bleeding-risk rule. */
 export function offlineBrufenCard(hh: string, sourceEventId: string | null): DecisionCard {
   return {
     id: `card-${randomUUID()}`,
@@ -163,6 +167,7 @@ export function offlineBrufenCard(hh: string, sourceEventId: string | null): Dec
   };
 }
 
+/** Generate a warn-only safety card with Gemini (structured output), with offline fallbacks. */
 export async function generateDecisionCard(input: {
   hh: string;
   sourceEventId: string | null;
@@ -264,6 +269,7 @@ Rules:
   }
 }
 
+/** Summarise the recent care log for a doctor with Gemini; falls back to the plain log. */
 export async function generateDoctorBrief(hh: string, elderName: string): Promise<string> {
   const events = await listEvents(hh, 30);
   const lines = events.map(

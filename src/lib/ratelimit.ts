@@ -4,6 +4,7 @@
  */
 const buckets = new Map<string, number[]>();
 
+/** Best-effort client IP from proxy headers, used only as a rate-limit key. */
 export function clientIp(req: Request): string {
   const h = req.headers;
   const fwd = h.get("x-forwarded-for")?.split(",")[0]?.trim();
@@ -25,6 +26,7 @@ export function rateLimit(key: string, max: number, windowMs: number, now = Date
   return true;
 }
 
+/** Clear in-memory rate-limit counters (tests). */
 export function resetRateLimits() {
   buckets.clear();
 }

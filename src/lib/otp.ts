@@ -4,18 +4,23 @@ import { sendEmail } from "./email";
 
 /** Email sign-up codes: 6 digits, stored only as a SHA-256 hash, 10-minute expiry, 5 attempts, 60 s resend cooldown. */
 export const OTP_TTL_MS = 10 * 60_000;
+/** Wrong sign-up codes allowed before the code is invalidated. */
 export const OTP_MAX_ATTEMPTS = 5;
+/** Minimum wait between sending two sign-up codes. */
 export const OTP_RESEND_COOLDOWN_MS = 60_000;
 
 const hash = (code: string) => createHash("sha256").update(code).digest("hex");
 
+/** Cryptographically random 6-digit sign-up code. */
 export function generateOtp(): string {
   return String(randomInt(100000, 1000000));
 }
 
+/** Outcome of issuing a sign-up code (sent, cooling down, or failed). */
 export type IssueResult =
   { ok: true; sent: boolean; devCode?: string } | { ok: false; status: number; error: string; retryAfterS?: number };
 
+/** Create, hash and email a sign-up code (10-minute expiry, resend cooldown). */
 export async function issueOtp(userId: string, email: string, name: string, now = Date.now()): Promise<IssueResult> {
   const existing = await getOtp(userId);
   if (existing && now - existing.last_sent_at < OTP_RESEND_COOLDOWN_MS) {
@@ -50,8 +55,10 @@ export async function issueOtp(userId: string, email: string, name: string, now 
   return { ok: true, sent: r.sent, devCode };
 }
 
+/** Outcome of checking a sign-up code. */
 export type VerifyResult = { ok: true } | { ok: false; status: number; error: string };
 
+/** Check a sign-up code: expiry, attempt limit, constant-time hash compare; single use. */
 export async function verifyOtp(userId: string, code: string, now = Date.now()): Promise<VerifyResult> {
   const row = await getOtp(userId);
   if (!row) return { ok: false, status: 400, error: "No code is waiting. Ask for a new code." };

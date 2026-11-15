@@ -19,6 +19,7 @@ export interface DoseLinkPayload {
   n: string; // nonce
 }
 
+/** One-tap email dose links expire after 6 hours. */
 export const DOSE_LINK_TTL_S = 6 * 60 * 60;
 
 function key(): string {
@@ -29,6 +30,7 @@ function key(): string {
 }
 const sign = (p: string) => createHmac("sha256", key()).update(p).digest("base64url");
 
+/** Create a signed, expiring, single-use token for a one-tap dose link in an email. */
 export function createDoseToken(
   p: Omit<DoseLinkPayload, "v" | "exp" | "n">,
   ttlS = DOSE_LINK_TTL_S,
@@ -39,6 +41,7 @@ export function createDoseToken(
   return `${b}.${sign(b)}`;
 }
 
+/** Verify a dose-link token signature and expiry (does not redeem it). */
 export function verifyDoseToken(
   token: string,
   nowS = Date.now() / 1000,
@@ -59,6 +62,7 @@ export function verifyDoseToken(
   }
 }
 
+/** Outcome of redeeming a one-tap dose link. */
 export type RedeemResult =
   | { ok: true; outcome: "elder_confirmed" | "witnessed"; medicine: string }
   | { ok: false; status: number; reason: string };

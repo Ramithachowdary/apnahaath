@@ -17,10 +17,12 @@ import { translateCareMessage } from "./gemini";
 import { formatIstIso, formatTime12, minutesSince } from "./time";
 import type { ReminderOutbox, Role } from "./types";
 
+/** Email addresses of the care circle's members, for reminder emails. */
 export async function familyRecipients(hh: string): Promise<string[]> {
   return (await recipients(hh, false)).map((r) => r.email);
 }
 
+/** One reminder email recipient and their role. */
 export interface Recipient {
   email: string;
   uid: string | null;
@@ -43,6 +45,7 @@ export function doseLinkFooter(hh: string, slotId: string, r: Recipient): string
     : `Saw the dose taken? Tap to record yourself as a witness (does not mark it taken; works once, for 6 hours):\n${url}`;
 }
 
+/** Idempotent reminder run: upcoming doses, missed doses and appointments, via the outbox. */
 export async function runMorningCheck(
   hh: string,
 ): Promise<{ queued: number; results: Array<{ id: string; status: string }> }> {

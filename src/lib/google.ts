@@ -1,6 +1,7 @@
 /** Google sign-in via the plain OAuth 2.0 authorization-code flow (no SDK). */
 export const GOOGLE_STATE_COOKIE = "apnahaath_g_state";
 
+/** True when Google Sign-In client ID and secret are set. */
 export function googleConfigured(): boolean {
   return Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
 }
@@ -14,10 +15,12 @@ export function appUrl(): string {
   ).replace(/\/$/, "");
 }
 
+/** OAuth callback URL registered with Google (APP_URL + /api/auth/google/callback). */
 export function googleRedirectUri(): string {
   return `${appUrl()}/api/auth/google/callback`;
 }
 
+/** Google OAuth 2.0 authorization URL (openid email profile) with a CSRF state. */
 export function googleAuthUrl(state: string): string {
   const q = new URLSearchParams({
     client_id: process.env.GOOGLE_CLIENT_ID ?? "",
@@ -30,8 +33,10 @@ export function googleAuthUrl(state: string): string {
   return `https://accounts.google.com/o/oauth2/v2/auth?${q}`;
 }
 
+/** Verified profile fields returned by Google. */
 export type GoogleProfile = { sub: string; email: string; email_verified: boolean; name: string };
 
+/** Exchange an authorization code for tokens and read the verified Google profile. */
 export async function exchangeGoogleCode(code: string): Promise<GoogleProfile> {
   const tok = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",

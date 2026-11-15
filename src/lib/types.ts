@@ -1,5 +1,7 @@
+/** Role inside a care circle. */
 export type Role = "elder" | "caretaker" | "family";
 
+/** A signed-up account. */
 export interface User {
   id: string;
   name: string;
@@ -11,6 +13,7 @@ export interface User {
   created_at: string;
 }
 
+/** A care circle: exactly one elder, any number of caretakers and family. */
 export interface Household {
   id: string;
   elder_name: string;
@@ -23,6 +26,7 @@ export interface Household {
   created_at: string;
 }
 
+/** A user's role in one care circle. */
 export interface Membership {
   id: string;
   user_id: string;
@@ -34,6 +38,7 @@ export interface Membership {
   created_at: string;
 }
 
+/** A member as shown to others in the circle. */
 export interface Member {
   id: string;
   name: string;
@@ -41,6 +46,7 @@ export interface Member {
   role: Role;
 }
 
+/** A medicine on the elder's list (added by her, or accepted from a proposal). */
 export interface Medicine {
   id: string;
   household_id: string;
@@ -54,6 +60,7 @@ export interface Medicine {
   notes: string | null;
 }
 
+/** One scheduled dose for a day and its status. */
 export interface DoseSlot {
   id: string;
   household_id: string;
@@ -63,6 +70,7 @@ export interface DoseSlot {
   skip_reason: string | null;
 }
 
+/** A doctor visit. */
 export interface Appointment {
   id: string;
   household_id: string;
@@ -72,6 +80,7 @@ export interface Appointment {
   notes: string | null;
 }
 
+/** An append-only care log entry. */
 export interface CareEvent {
   id: string;
   household_id: string;
@@ -85,6 +94,7 @@ export interface CareEvent {
   created_at: string;
 }
 
+/** A warn-only safety note. */
 export interface DecisionCard {
   id: string;
   household_id: string;
@@ -101,6 +111,7 @@ export interface DecisionCard {
   created_at: string;
 }
 
+/** A queued or sent reminder email (idempotent by id). */
 export interface ReminderOutbox {
   id: string;
   household_id: string;
@@ -115,6 +126,7 @@ export interface ReminderOutbox {
   error: string | null;
 }
 
+/** A family suggestion (add / change time / stop) waiting for the elder. */
 export interface Proposal {
   id: string;
   household_id: string;
@@ -126,6 +138,7 @@ export interface Proposal {
   created_at: string;
 }
 
+/** Taken / missed / skipped counts for a period. */
 export interface AdherenceStats {
   elderConfirmed: number;
   witnessed: number;

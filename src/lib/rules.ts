@@ -28,6 +28,7 @@ export async function checkThyronormShelcalGap(
   return { ok: true };
 }
 
+/** True when Ecosprin (aspirin) is on the active medicine list. */
 export async function findEcosprinActive(hh: string): Promise<boolean> {
   return (await listMedicines(hh, true)).some((m) => /ecosprin|aspirin/i.test(m.name));
 }

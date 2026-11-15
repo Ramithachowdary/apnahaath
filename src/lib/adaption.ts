@@ -17,8 +17,10 @@ const MessagesSchema = z.object({
   caretaker: z.string().min(5).max(300),
   family: z.string().min(10).max(900),
 });
+/** Three role-specific messages (elder, caretaker, family) phrased from one safety card. */
 export type CareMessages = z.infer<typeof MessagesSchema>;
 
+/** Validate Adaption output with zod and reject any line that suggests a dose change. */
 export function validateCareMessages(
   raw: unknown,
 ): { ok: true; messages: CareMessages } | { ok: false; error: string } {
@@ -29,6 +31,7 @@ export function validateCareMessages(
   return { ok: true, messages: p.data };
 }
 
+/** Offline template messages used when Adaption is off, slow or rejected. */
 export function templateMessages(card: DecisionCard, elderName: string): CareMessages {
   const time = formatTime12(formatIstIso());
   return {
@@ -82,6 +85,7 @@ function adaptionModel(): string {
   return process.env.ADAPTION_MODEL || "gemma-4-31b-it";
 }
 
+/** Ask Adaption to phrase a validated safety card for each role; falls back to templates. */
 export async function generateCareMessages(
   card: DecisionCard,
   elderName: string,
