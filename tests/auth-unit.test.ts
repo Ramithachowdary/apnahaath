@@ -13,11 +13,9 @@ vi.mock("../src/lib/db", () => ({
   getAuthMeta: vi.fn(),
   getHousehold: vi.fn(),
   getMembership: vi.fn(),
-  getMembershipById: vi.fn(),
   getUser: vi.fn(),
   getUserByEmail: vi.fn(),
   setAuthMeta: vi.fn(),
-  setMembershipLock: vi.fn(),
 }));
 
 import {
@@ -34,16 +32,7 @@ import {
   verifyLogin,
   withSession,
 } from "../src/lib/auth";
-import {
-  getAuthMeta,
-  getHousehold,
-  getMembership,
-  getMembershipById,
-  getUser,
-  getUserByEmail,
-  setAuthMeta,
-  setMembershipLock,
-} from "../src/lib/db";
+import { getAuthMeta, getHousehold, getMembership, getUser, getUserByEmail, setAuthMeta } from "../src/lib/db";
 import { SESSION_COOKIE } from "../src/lib/constants";
 import { NextResponse } from "next/server";
 
@@ -53,10 +42,8 @@ const authMeta = vi.mocked(getAuthMeta);
 const setMeta = vi.mocked(setAuthMeta);
 const getH = vi.mocked(getHousehold);
 const getM = vi.mocked(getMembership);
-const getMid = vi.mocked(getMembershipById);
 const getU = vi.mocked(getUser);
 const getByEmail = vi.mocked(getUserByEmail);
-const setLock = vi.mocked(setMembershipLock);
 
 const user = {
   id: "u1",
@@ -96,10 +83,8 @@ beforeEach(() => {
   setMeta.mockReset().mockResolvedValue(undefined);
   getH.mockReset();
   getM.mockReset();
-  getMid.mockReset();
   getU.mockReset();
   getByEmail.mockReset();
-  setLock.mockReset().mockResolvedValue(undefined);
   process.env.SESSION_SECRET = "test-session-secret-32chars!!";
 });
 
