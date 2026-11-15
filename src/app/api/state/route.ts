@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { dedupeCards } from "@/lib/cards";
 import { requireMember } from "@/lib/auth";
 import {
   ensureTodaySlots, getAdherenceStats, listAppointments, listDecisionCards, listDoseSlots, listEvents,
@@ -25,9 +26,8 @@ export async function GET() {
   ]);
   return NextResponse.json({
     me: { id: user.id, name: user.name, email: user.email, role, isOwner },
-    household: { id: hh, elder_name: household.elder_name, elder_age: household.elder_age, city: household.city, language: household.language, is_demo: household.is_demo },
-    demoCredentials: household.is_demo ? JSON.parse(household.demo_credentials_json ?? "[]") : null,
+    household: { id: hh, elder_name: household.elder_name, elder_age: household.elder_age, city: household.city, language: household.language },
     members: members.map((m) => ({ id: m.id, name: m.name, role: m.role })),
-    medicines, doseSlots, history, appointments, events, cards, proposals, outbox, adherence, invites,
+    medicines, doseSlots, history, appointments, events, cards: dedupeCards(cards, [...medicines.map((m) => m.name), "Brufen"]), proposals, outbox, adherence, invites,
   });
 }

@@ -6,6 +6,8 @@ export interface User {
   email: string;
   password_hash: string;
   is_demo: number;
+  email_verified?: number;
+  google_id?: string | null;
   created_at: string;
 }
 

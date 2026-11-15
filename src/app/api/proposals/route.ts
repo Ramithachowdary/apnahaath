@@ -20,9 +20,9 @@ const Payload = z.object({
   reason: z.string().trim().max(200).optional(),
 }).strict();
 
-/** Family proposes add / change time / stop. Nothing changes until the elder accepts. */
+/** Family proposes add / change time / stop; nothing changes until the elder accepts. The elder's own changes apply at once (her decision). */
 export async function POST(req: Request) {
-  const a = await requireMember(["family"]);
+  const a = await requireMember(["family", "elder"]);
   if ("error" in a) return a.error;
   const p = await parseBody(req, z.object({ pin, kind: z.enum(["add", "edit_schedule", "stop"]), medicineId: z.string().max(120).optional(), payload: Payload }));
   if ("error" in p) return p.error;
@@ -40,7 +40,12 @@ export async function POST(req: Request) {
   }
   const id = `prop-${randomUUID()}`;
   await insertProposal(hh, { id, kind, medicine_id: med?.id ?? null, payload, created_by: a.ctx.user.name });
-  await insertEvent(hh, { id: `evt-${randomUUID()}`, type: kind === "stop" ? "stop_proposed" : "change_proposed", actor_role: "family", actor_name: a.ctx.user.name, medicine_id: med?.id ?? null, payload: { proposalId: id, kind, ...payload } });
+  const byElder = a.ctx.membership.role === "elder";
+  await insertEvent(hh, { id: `evt-${randomUUID()}`, type: kind === "stop" ? "stop_proposed" : "change_proposed", actor_role: a.ctx.membership.role, actor_name: a.ctx.user.name, medicine_id: med?.id ?? null, payload: { proposalId: id, kind, ...payload } });
+  if (byElder) {
+    await applyAccepted(hh, { id, kind, medicine_id: med?.id ?? null, payload: payload as Record<string, string> }, a.ctx.user.name);
+    return NextResponse.json({ ok: true, proposalId: id, status: "accepted" });
+  }
   return NextResponse.json({ ok: true, proposalId: id });
 }
 
@@ -67,8 +72,14 @@ export async function PATCH(req: Request) {
     const med = await getMedicine(hh, prop.medicine_id);
     const gap = await checkThyronormShelcalGap(hh, { medicineName: med?.name ?? "", scheduleTime: payload.schedule_time });
     if (!gap.ok) return NextResponse.json({ error: gap.message_en }, { status: 400 });
-    await updateMedicineSchedule(hh, prop.medicine_id, payload.schedule_time);
   }
+  await applyAccepted(hh, { id: prop.id, kind: prop.kind, medicine_id: prop.medicine_id, payload }, a.ctx.user.name);
+  return NextResponse.json({ ok: true, status: "accepted" });
+}
+
+async function applyAccepted(hh: string, prop: { id: string; kind: string; medicine_id: string | null; payload: Record<string, string> }, elderName: string) {
+  const payload = prop.payload;
+  if (prop.kind === "edit_schedule" && prop.medicine_id) await updateMedicineSchedule(hh, prop.medicine_id, payload.schedule_time);
   if (prop.kind === "stop" && prop.medicine_id) await setMedicineActive(hh, prop.medicine_id, 0);
   if (prop.kind === "add") {
     await insertMedicine({
@@ -79,6 +90,5 @@ export async function PATCH(req: Request) {
     await ensureTodaySlots(hh);
   }
   await updateProposalStatus(hh, prop.id, "accepted");
-  await evt("change_accepted", { kind: prop.kind });
-  return NextResponse.json({ ok: true, status: "accepted" });
+  await insertEvent(hh, { id: `evt-${randomUUID()}`, type: "change_accepted", actor_role: "elder", actor_name: elderName, medicine_id: prop.medicine_id, payload: { proposalId: prop.id, kind: prop.kind } });
 }

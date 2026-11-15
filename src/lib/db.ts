@@ -97,6 +97,12 @@ CREATE TABLE IF NOT EXISTS proposals (
   created_by TEXT NOT NULL, created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS auth_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS email_otps (
+  user_id TEXT PRIMARY KEY, code_hash TEXT NOT NULL, expires_at BIGINT NOT NULL,
+  attempts INTEGER NOT NULL DEFAULT 0, last_sent_at BIGINT NOT NULL
+);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id TEXT;
 CREATE INDEX IF NOT EXISTS idx_memberships_user ON memberships(user_id);
 CREATE INDEX IF NOT EXISTS idx_memberships_household ON memberships(household_id);
 CREATE INDEX IF NOT EXISTS idx_events_household ON care_events(household_id, created_at);
@@ -219,13 +225,40 @@ export async function resetDatabase(): Promise<void> {
 
 // ---------- users / households / memberships ----------
 export async function createUser(u: Omit<User, "created_at">) {
-  await run(`INSERT INTO users (id,name,email,password_hash,is_demo,created_at) VALUES (?,?,?,?,?,?)`,
-    [u.id, u.name, u.email.toLowerCase(), u.password_hash, u.is_demo, formatIstIso()]);
+  await run(`INSERT INTO users (id,name,email,password_hash,is_demo,created_at,email_verified,google_id) VALUES (?,?,?,?,?,?,?,?)`,
+    [u.id, u.name, u.email.toLowerCase(), u.password_hash, u.is_demo, formatIstIso(), u.email_verified ?? 1, u.google_id ?? null]);
 }
 export const createUserStmt = (u: Omit<User, "created_at">): Stmt => ({
   sql: `INSERT INTO users (id,name,email,password_hash,is_demo,created_at) VALUES (?,?,?,?,?,?)`,
   args: [u.id, u.name, u.email.toLowerCase(), u.password_hash, u.is_demo, formatIstIso()],
 });
+export async function setUserVerified(id: string) {
+  await run(`UPDATE users SET email_verified = 1 WHERE id = ?`, [id]);
+}
+export async function setUserGoogle(id: string, googleId: string) {
+  await run(`UPDATE users SET google_id = ?, email_verified = 1 WHERE id = ?`, [googleId, id]);
+}
+export async function updateUnverifiedUser(id: string, name: string, passwordHash: string) {
+  await run(`UPDATE users SET name = ?, password_hash = ? WHERE id = ? AND email_verified = 0`, [name, passwordHash, id]);
+}
+export async function getUserByGoogleId(googleId: string) {
+  return one<User>(`SELECT * FROM users WHERE google_id = ?`, [googleId]);
+}
+export type OtpRow = { user_id: string; code_hash: string; expires_at: number; attempts: number; last_sent_at: number };
+export async function getOtp(userId: string) {
+  const r = await one<OtpRow>(`SELECT * FROM email_otps WHERE user_id = ?`, [userId]);
+  return r ? { ...r, expires_at: Number(r.expires_at), last_sent_at: Number(r.last_sent_at), attempts: Number(r.attempts) } : undefined;
+}
+export async function upsertOtp(userId: string, codeHash: string, expiresAt: number, now: number) {
+  await run(`INSERT INTO email_otps (user_id,code_hash,expires_at,attempts,last_sent_at) VALUES (?,?,?,0,?)
+    ON CONFLICT(user_id) DO UPDATE SET code_hash = excluded.code_hash, expires_at = excluded.expires_at, attempts = 0, last_sent_at = excluded.last_sent_at`, [userId, codeHash, expiresAt, now]);
+}
+export async function bumpOtpAttempts(userId: string) {
+  await run(`UPDATE email_otps SET attempts = attempts + 1 WHERE user_id = ?`, [userId]);
+}
+export async function deleteOtp(userId: string) {
+  await run(`DELETE FROM email_otps WHERE user_id = ?`, [userId]);
+}
 export async function getUserByEmail(email: string) {
   return one<User>(`SELECT * FROM users WHERE email = ?`, [email.toLowerCase()]);
 }

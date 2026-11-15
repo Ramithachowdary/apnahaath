@@ -51,13 +51,18 @@ const r = {
   witness: () => import("../src/app/api/doses/witness/route"),
   proposals: () => import("../src/app/api/proposals/route"),
   appointments: () => import("../src/app/api/appointments/route"),
-  demo: () => import("../src/app/api/demo/start/route"),
-  sw: () => import("../src/app/api/demo/switch/route"),
-  reset: () => import("../src/app/api/demo/reset/route"),
   messages: () => import("../src/app/api/cards/messages/route"),
 };
 
-// A real (non-demo) care circle built through the public flow
+/** Sign-up is two steps: create (emails a code) + verify (signs in). Tests get the code back outside production. */
+async function signUp(agent: Agent, body: { name: string; email: string; password: string }) {
+  const res = await agent.call((await r.signup()).POST, body);
+  if (res.status !== 200) return res;
+  const v = await import("../src/app/api/auth/verify/route");
+  return agent.call(v.POST, { email: body.email, code: res.json.devCode });
+}
+
+// A real care circle built through the public flow
 const priya = new Agent();
 const kamla = new Agent();
 const sunita = new Agent();
@@ -65,7 +70,7 @@ let householdId = "";
 
 beforeAll(async () => {
   const s = await r.signup();
-  expect((await priya.call(s.POST, { name: "Priya", email: "priya@example.com", password: "password123" })).status).toBe(200);
+  expect((await signUp(priya, { name: "Priya", email: "priya@example.com", password: "password123" })).status).toBe(200);
   const h = await (await r.households()).POST;
   const created = await priya.call(h, { elder_name: "Kamla Devi", elder_age: 74, city: "Lucknow", language: "English", role: "family", pin: "3333" });
   expect(created.status).toBe(200);
@@ -74,13 +79,13 @@ beforeAll(async () => {
   const elderInv = await priya.call(inv.POST, { role: "elder" });
   const careInv = await priya.call(inv.POST, { role: "caretaker" });
   expect(elderInv.status).toBe(200);
-  await kamla.call(s.POST, { name: "Kamla Devi", email: "kamla@example.com", password: "password123" });
-  await sunita.call(s.POST, { name: "Sunita", email: "sunita@example.com", password: "password123" });
+  await signUp(kamla, { name: "Kamla Devi", email: "kamla@example.com", password: "password123" });
+  await signUp(sunita, { name: "Sunita", email: "sunita@example.com", password: "password123" });
   const j = await r.join();
   expect((await kamla.call(j.POST, { code: elderInv.json.code, pin: "1111" })).json.role).toBe("elder");
   expect((await sunita.call(j.POST, { code: careInv.json.code, pin: "2222" })).json.role).toBe("caretaker");
   // invite codes are single-use
-  const again = await new Agent().call(s.POST, { name: "X", email: "x@example.com", password: "password123" });
+  const again = await signUp(new Agent(), { name: "X", email: "x@example.com", password: "password123" });
   expect(again.status).toBe(200);
   // Priya proposes a medicine; Kamla accepts -> today's dose exists
   const pr = await r.proposals();
@@ -105,8 +110,8 @@ describe("accounts, care circles, invites", () => {
     const inv = await priya.call((await r.invites()).POST, { role: "family" });
     const a = new Agent();
     const b = new Agent();
-    await a.call((await r.signup()).POST, { name: "A", email: "a1@example.com", password: "password123" });
-    await b.call((await r.signup()).POST, { name: "B", email: "b1@example.com", password: "password123" });
+    await signUp(a, { name: "A", email: "a1@example.com", password: "password123" });
+    await signUp(b, { name: "B", email: "b1@example.com", password: "password123" });
     expect((await a.call((await r.join()).POST, { code: inv.json.code, pin: "4444" })).status).toBe(200);
     expect((await b.call((await r.join()).POST, { code: inv.json.code, pin: "4444" })).status).toBe(400);
   });
@@ -158,11 +163,12 @@ describe("role rules", () => {
 
 describe("isolation and security", () => {
   it("a member of another household cannot read or act on this one", async () => {
+    // outsider is the elder of their own, separate care circle
     const outsider = new Agent();
-    await outsider.call((await r.demo()).POST); // signed into their own demo household
+    await signUp(outsider, { name: "Outsider", email: "outsider@example.com", password: "password123" });
+    await outsider.call((await r.households()).POST, { elder_name: "Other Elder", elder_age: 80, city: "Pune", language: "English", role: "elder", pin: "1111" });
     const id = await todaySlotId(kamla);
-    // outsider (demo family) cannot touch Kamla's real slot: id not found in *their* household
-    await outsider.call((await r.sw()).POST, { role: "elder" });
+    // outsider cannot touch Kamla's slot: id not found in *their* household
     const res = await outsider.call((await r.confirm()).POST, { doseSlotId: id, pin: "1111" });
     expect(res.status).toBe(404);
     // and cannot switch into the real household
@@ -178,46 +184,36 @@ describe("isolation and security", () => {
     forged.cookie = Buffer.from(JSON.stringify({ uid: "u-x", hid: householdId, iat: Date.now() / 1000 })).toString("base64url") + ".fake";
     expect((await forged.get((await r.state()).GET)).status).toBe(401);
   });
-
-  it("reset without the admin code is rejected", async () => {
-    const rs = await r.reset();
-    expect((await new Agent().call(rs.POST, {})).status).toBe(400);
-    expect((await new Agent().call(rs.POST, { passcode: "111111" })).status).toBe(401);
-  });
 });
 
-describe("demo household", () => {
-  it("creates an isolated seeded household with the Brufen card and three demo logins", async () => {
-    const judge = new Agent();
-    const d = await judge.call((await r.demo()).POST);
-    expect(d.status).toBe(200);
-    expect((d.json.credentials as unknown[]).length).toBe(3);
-    const st = await judge.get((await r.state()).GET);
-    expect(st.json.cards.some((c: { title: string }) => /Brufen/.test(c.title))).toBe(true);
-    expect(st.json.me.role).toBe("family");
-    expect(st.json.history.length).toBeGreaterThan(5);
-  });
-
+describe("reminders and skips", () => {
   it("skip is not counted as missed and never triggers a missed email; reminder runs are idempotent", async () => {
-    const judge = new Agent();
-    await judge.call((await r.demo()).POST);
-    await judge.call((await r.sw()).POST, { role: "elder" });
-    const st = await judge.get((await r.state()).GET);
-    const pending = [...st.json.doseSlots].reverse().find((s: { status: string }) => s.status === "pending");
+    // a fresh real circle where the creator is the elder
+    const elder = new Agent();
+    await signUp(elder, { name: "Savitri", email: "savitri@example.com", password: "password123" });
+    const hh = (await elder.call((await r.households()).POST, { elder_name: "Savitri", elder_age: 78, city: "Jaipur", language: "English", role: "elder", pin: "1111" })).json.householdId as string;
+    const pr = await r.proposals();
+    for (const [name, t] of [["Telma 40", "23:40"], ["Glycomet 500", "23:50"]]) {
+      const p = await elder.call(pr.POST, { pin: "1111", kind: "add", payload: { name, dose: "1 tablet", schedule_time: t } });
+      expect(p.status).toBe(200);
+      if (p.json.proposalId) await elder.call(pr.PATCH, { pin: "1111", proposalId: p.json.proposalId, decision: "accept" }, "PATCH");
+    }
+    const st = await elder.get((await r.state()).GET);
+    expect(st.json.doseSlots.length).toBe(2);
+    const pending = st.json.doseSlots.find((s: { status: string }) => s.status === "pending");
     const before = st.json.adherence;
-    expect((await judge.call((await r.skip()).POST, { doseSlotId: pending.id, pin: "1111", reason: "Fasting" })).status).toBe(200);
-    const after = (await judge.get((await r.state()).GET)).json.adherence;
+    expect((await elder.call((await r.skip()).POST, { doseSlotId: pending.id, pin: "1111", reason: "Fasting" })).status).toBe(200);
+    const after = (await elder.get((await r.state()).GET)).json.adherence;
     expect(after.skipped).toBe(before.skipped + 1);
     expect(after.missed).toBe(before.missed);
-    // push all remaining pending slots far into the past, then run reminders twice
-    const { query } = await import("../src/lib/db");
-    await query(`UPDATE dose_slots SET scheduled_at = ? WHERE household_id = ? AND status='pending'`, [new Date(Date.now() - 5 * 3600_000).toISOString(), st.json.household.id]);
+    // push the remaining pending slot far into the past, then run reminders twice
+    const { query, listOutbox } = await import("../src/lib/db");
+    await query(`UPDATE dose_slots SET scheduled_at = ? WHERE household_id = ? AND status='pending'`, [new Date(Date.now() - 5 * 3600_000).toISOString(), hh]);
     const { runMorningCheck } = await import("../src/lib/reminders");
-    await runMorningCheck(st.json.household.id);
-    const { listOutbox } = await import("../src/lib/db");
-    const n1 = (await listOutbox(st.json.household.id)).length;
-    await runMorningCheck(st.json.household.id);
-    const out = await listOutbox(st.json.household.id);
+    await runMorningCheck(hh);
+    const n1 = (await listOutbox(hh)).length;
+    await runMorningCheck(hh);
+    const out = await listOutbox(hh);
     expect(out.length).toBe(n1);
     expect(out.some((o) => o.kind === "missed" && o.idempotency_key.includes(pending.id))).toBe(false);
     for (const o of out) expect(o.subject).not.toMatch(/telma|glycomet|brufen|ecosprin|shelcal|thyronorm/i);
@@ -301,5 +297,177 @@ describe("weekly care summary (Adaption)", () => {
   it("weekly summary route requires sign-in", async () => {
     const mod = await import("../src/app/api/summary/weekly/route");
     expect((await new Agent().call(mod.POST as never, {})).status).toBe(401);
+  });
+});
+
+describe("no-dose-change guard (rejectsMutation)", () => {
+  it("rejects instructions that would change, stop or replace a medicine", async () => {
+    const { rejectsMutation } = await import("../src/lib/gemini");
+    const bad = [
+      "Discontinue Ecosprin for now.",
+      "Please stop taking Telma.",
+      "Hold this medicine until Monday.",
+      "Do not take her Glycomet tonight.",
+      "Skip your dose of Shelcal today.",
+      "Reduce Telma to half a tablet.",
+      "Halve the dose of Glycomet.",
+      "Double the dose tomorrow.",
+      "Increase the dose to 80 mg.",
+      "Take two tablets of Brufen now.",
+      "Switch to paracetamol instead.",
+      "Withhold the tablet if sugar is low.",
+      "Taper the dose over a week.",
+    ];
+    for (const t of bad) expect(rejectsMutation(t), t).toBe(true);
+  });
+  it("allows ordinary warn-only safety advice", async () => {
+    const { rejectsMutation } = await import("../src/lib/gemini");
+    const ok = [
+      "Brufen with Ecosprin can increase the risk of stomach bleeding; she took 400 mg today.",
+      "Do not double the dose to make up for a missed one.",
+      "Do not stop or change any medicine without asking the doctor.",
+      "Tell Dr. Sharma about the knee pain and the Brufen.",
+      "Kamla has lower back pain and took Brufen 400 mg.",
+    ];
+    for (const t of ok) expect(rejectsMutation(t), t).toBe(false);
+  });
+});
+
+describe("rate limits", () => {
+  it("per-IP sign-up limiter blocks one client but not another", async () => {
+    const { rateLimit, resetRateLimits } = await import("../src/lib/ratelimit");
+    resetRateLimits();
+    for (let i = 0; i < 8; i++) expect(rateLimit("signup:1.1.1.1", 8, 60_000)).toBe(true);
+    expect(rateLimit("signup:1.1.1.1", 8, 60_000)).toBe(false);
+    expect(rateLimit("signup:2.2.2.2", 8, 60_000)).toBe(true);
+    expect(rateLimit("signup:1.1.1.1", 8, 60_000, Date.now() + 61_000)).toBe(true);
+    resetRateLimits();
+  });
+});
+
+describe("safety-note dedupe", () => {
+  it("keeps only the newest note about the same medicines", async () => {
+    const { dedupeCards } = await import("../src/lib/cards");
+    const base = { household_id: "h", source_event_id: null, severity: "review_required", elder_line_hi: "x", caretaker_line_hi: "x", tell_doctor: "x", disclaimer: "x", emergency_line: "x", cached: 0 };
+    const cards = [
+      { ...base, id: "a", title: "Brufen and Ecosprin", family_line_en: "Brufen with Ecosprin raises bleeding risk", created_at: "2026-11-15T09:00:00+05:30" },
+      { ...base, id: "b", title: "Brufen interaction notice", family_line_en: "Brufen and Ecosprin together", created_at: "2026-11-15T11:00:00+05:30" },
+      { ...base, id: "c", title: "Thyronorm timing", family_line_en: "Keep Thyronorm 4 hours from Shelcal", created_at: "2026-11-15T10:00:00+05:30" },
+    ];
+    const out = dedupeCards(cards as never, ["Brufen 400", "Ecosprin 75", "Thyronorm 50", "Shelcal 500"]);
+    expect(out.map((c) => c.id)).toEqual(["b", "c"]);
+  });
+});
+
+describe("one-tap email links (signed, expiring, single use)", () => {
+  async function ids() {
+    const { listMembers } = await import("../src/lib/db");
+    const members = await listMembers(householdId);
+    const uid = (role: string) => members.find((m) => m.role === role)!.id;
+    return { elder: uid("elder"), family: uid("family"), slot: await todaySlotId(kamla) };
+  }
+
+  it("rejects tampered, expired and other-household links", async () => {
+    const { createDoseToken, redeemDoseToken } = await import("../src/lib/doselink");
+    const { elder, slot } = await ids();
+    const t = createDoseToken({ hid: householdId, sid: slot, uid: elder, role: "elder" });
+    const [p, s] = t.split(".");
+    const forged = Buffer.from(JSON.stringify({ ...JSON.parse(Buffer.from(p, "base64url").toString()), role: "elder", uid: "someone" })).toString("base64url");
+    expect((await redeemDoseToken(`${forged}.${s}`)).ok).toBe(false);
+    const expired = createDoseToken({ hid: householdId, sid: slot, uid: elder, role: "elder" }, 60, Date.now() / 1000 - 3600);
+    expect(await redeemDoseToken(expired)).toMatchObject({ ok: false, status: 400 });
+    const wrongHh = createDoseToken({ hid: "hh-other", sid: slot, uid: elder, role: "elder" });
+    expect(await redeemDoseToken(wrongHh)).toMatchObject({ ok: false, status: 403 });
+  });
+
+  it("a family member's link is only a witness and never marks the dose taken; a role cannot be claimed", async () => {
+    const { createDoseToken, redeemDoseToken } = await import("../src/lib/doselink");
+    const { family, slot } = await ids();
+    expect(await redeemDoseToken(createDoseToken({ hid: householdId, sid: slot, uid: family, role: "elder" }))).toMatchObject({ ok: false, status: 403 });
+    expect(await redeemDoseToken(createDoseToken({ hid: householdId, sid: slot, uid: family, role: "family" }))).toMatchObject({ ok: true, outcome: "witnessed" });
+    const st = await kamla.get((await r.state()).GET);
+    expect(st.json.doseSlots.find((d: { id: string }) => d.id === slot).status).toBe("pending");
+  });
+
+  it("GET never changes anything; the elder's own link confirms once and cannot be reused", async () => {
+    const route = await import("../src/app/api/doses/link/route");
+    const { createDoseToken } = await import("../src/lib/doselink");
+    const { elder, slot } = await ids();
+    const t = createDoseToken({ hid: householdId, sid: slot, uid: elder, role: "elder" });
+    const g = await route.GET(new Request(`http://localhost/api/doses/link?t=${t}`));
+    expect(g.status).toBe(200);
+    expect(await g.text()).toContain("Yes, I took it");
+    const before = await kamla.get((await r.state()).GET);
+    expect(before.json.doseSlots.find((d: { id: string }) => d.id === slot).status).toBe("pending");
+    const post = () => { const f = new FormData(); f.set("t", t); return route.POST(new Request("http://localhost/api/doses/link", { method: "POST", body: f })); };
+    expect((await post()).status).toBe(200);
+    const after = await kamla.get((await r.state()).GET);
+    expect(after.json.doseSlots.find((d: { id: string }) => d.id === slot).status).toBe("elder_confirmed");
+    const again = await post();
+    expect(again.status).toBe(409);
+    expect(await again.text()).toContain("already used");
+  });
+});
+
+describe("reminder recipients", () => {
+  it("upcoming-dose emails include the elder; personal links never go into the shared outbox", async () => {
+    const { recipients, doseLinkFooter } = await import("../src/lib/reminders");
+    const withElder = await recipients(householdId, true);
+    expect(withElder.filter((x) => x.role === "elder")).toHaveLength(1);
+    expect(withElder.some((x) => x.role === "caretaker")).toBe(false);
+    expect((await recipients(householdId, false)).every((x) => x.role === "family")).toBe(true);
+    const elder = withElder.find((x) => x.role === "elder")!;
+    expect(doseLinkFooter(householdId, "slot-1", elder)).toMatch(/\/api\/doses\/link\?t=[\w-]+\.[\w-]+/);
+    expect(doseLinkFooter(householdId, "slot-1", { email: "nobody@example.com", uid: null, role: null })).toBe("");
+  });
+});
+
+
+describe("email verification (OTP)", () => {
+  it("sign-up gives no session until the 6-digit code is verified; wrong codes are limited to 5", async () => {
+    const a = new Agent();
+    const s = await a.call((await r.signup()).POST, { name: "Otp", email: "otp@example.com", password: "password123" });
+    expect(s.status).toBe(200);
+    expect(s.json.needsVerification).toBe(true);
+    expect(a.cookie).toBeUndefined();
+    // cannot sign in before verifying
+    const l = await new Agent().call((await r.login()).POST, { email: "otp@example.com", password: "password123" });
+    expect(l.status).toBe(403);
+    expect(l.json.needsVerification).toBe(true);
+    const v = await import("../src/app/api/auth/verify/route");
+    const wrong = String((Number(s.json.devCode) % 900000) + 100001).slice(0, 6);
+    for (let i = 0; i < 5; i++) expect((await a.call(v.POST, { email: "otp@example.com", code: wrong })).status).toBeGreaterThanOrEqual(400);
+    // locked after 5 wrong tries, even with the right code
+    expect((await a.call(v.POST, { email: "otp@example.com", code: s.json.devCode })).status).toBe(429);
+    expect(a.cookie).toBeUndefined();
+  });
+
+  it("codes are stored hashed, expire after 10 minutes, and resend has a cooldown", async () => {
+    const a = new Agent();
+    const s = await a.call((await r.signup()).POST, { name: "Otp2", email: "otp2@example.com", password: "password123" });
+    const { getUserByEmail, getOtp } = await import("../src/lib/db");
+    const u = (await getUserByEmail("otp2@example.com"))!;
+    const row = (await getOtp(u.id))!;
+    expect(row.code_hash).not.toContain(s.json.devCode);
+    expect(row.code_hash).toMatch(/^[0-9a-f]{64}$/);
+    const resend = await import("../src/app/api/auth/resend/route");
+    expect((await a.call(resend.POST, { email: "otp2@example.com" })).status).toBe(429);
+    const { verifyOtp } = await import("../src/lib/otp");
+    expect((await verifyOtp(u.id, String(s.json.devCode), Date.now() + 11 * 60_000)).ok).toBe(false);
+    const ok = await (await import("../src/app/api/auth/verify/route")).POST(new Request("http://x", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: "otp2@example.com", code: s.json.devCode }) }));
+    expect(ok.status).toBe(200);
+    expect(ok.headers.get("set-cookie")).toMatch(/apnahaath_session=/);
+  });
+
+  it("Google sign-in is disabled gracefully without credentials and uses the fixed callback URL", async () => {
+    delete process.env.GOOGLE_CLIENT_ID;
+    const g = await import("../src/app/api/auth/google/route");
+    const res = await g.GET(new Request("http://localhost/api/auth/google"));
+    expect(res.status).toBe(307);
+    expect(res.headers.get("location")).toMatch(/auth_error=google_unavailable/);
+    const { googleRedirectUri } = await import("../src/lib/google");
+    process.env.APP_URL = "https://apnahaath-ramithas-projects-88e2a822.vercel.app";
+    expect(googleRedirectUri()).toBe("https://apnahaath-ramithas-projects-88e2a822.vercel.app/api/auth/google/callback");
+    delete process.env.APP_URL;
   });
 });

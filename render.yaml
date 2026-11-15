@@ -17,16 +17,17 @@ services:
       # Secrets: Render prompts for these on first Blueprint deploy (never commit values)
       - key: SESSION_SECRET
         sync: false
-      - key: RESET_ADMIN_CODE
+      - key: APP_URL
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
         sync: false
       - key: GEMINI_API_KEY
         sync: false
       - key: GMAIL_USER
         sync: false
       - key: GMAIL_APP_PASSWORD
-        sync: false
-      # Optional: where demo-household reminder emails go
-      - key: NOTIFY_EMAIL
         sync: false
       - key: DATABASE_URL
         sync: false

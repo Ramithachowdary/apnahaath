@@ -1,15 +1,19 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import {
+  CalendarCheck, CheckCircle2, Clock, Eye, HandHeart, History as HistoryIcon, LogOut, MinusCircle,
+  Pill, ShieldCheck, Stethoscope, Users, XCircle,
+} from "lucide-react";
+import Landing from "./Landing";
 
 type Role = "elder" | "caretaker" | "family";
-type Me = { authenticated: boolean; user?: { id: string; name: string; email: string; is_demo: number }; households?: Array<{ id: string; elder_name: string; city: string; is_demo: number; role: Role }>; activeHouseholdId?: string | null };
+type Me = { authenticated: boolean; user?: { id: string; name: string; email: string }; households?: Array<{ id: string; elder_name: string; city: string; role: Role }>; activeHouseholdId?: string | null };
 type Slot = { id: string; medicine_id: string; medicine_name: string; brand_hi: string; color_band: string; instructions: string; scheduled_at: string; status: string; skip_reason: string | null };
 type Card = { id: string; severity: string; title: string; elder_line_hi: string; caretaker_line_hi: string; family_line_en: string; tell_doctor: string; disclaimer: string; emergency_line: string; created_at: string };
 type State = {
   me: { id: string; name: string; email: string; role: Role; isOwner: boolean };
-  household: { id: string; elder_name: string; elder_age: number | null; city: string; language: string; is_demo: number };
-  demoCredentials: Array<{ role: Role; name: string; email: string; password: string; pin: string }> | null;
+  household: { id: string; elder_name: string; elder_age: number | null; city: string; language: string };
   members: Array<{ id: string; name: string; role: Role }>;
   medicines: Array<{ id: string; name: string; dose: string; schedule_time: string; instructions: string; color_band: string; active: number }>;
   doseSlots: Slot[];
@@ -18,7 +22,7 @@ type State = {
   events: Array<{ id: string; type: string; actor_name: string; actor_role: string; created_at: string; payload_json: string }>;
   cards: Card[];
   proposals: Array<{ id: string; kind: string; medicine_id: string | null; payload_json: string; status: string; created_by: string; created_at: string }>;
-  outbox: Array<{ id: string; kind: string; to_email: string; subject: string; status: string; created_at: string }>;
+  outbox: Array<{ id: string; kind: string; to_email: string; subject: string; body?: string; status: string; created_at: string }>;
   adherence: { elderConfirmed: number; witnessed: number; skipped: number; missed: number; pending: number; elderConfirmationRate: number | null };
   invites: Array<{ id: string; role: Role; expires_at: string; used_by: string | null; created_at: string }>;
 };
@@ -45,7 +49,27 @@ const EVENT_LABEL: Record<string, string> = {
   appointment_updated: "updated an appointment",
   member_joined: "joined the care circle",
 };
-const TABS = ["Today", "Medicines", "History", "Appointments", "Safety", "Care circle"] as const;
+const TABS = ["Today", "Medicines", "History", "Appointments", "Care circle", "Safety & AI"] as const;
+const TAB_ICON = { Today: CalendarCheck, Medicines: Pill, History: HistoryIcon, Appointments: Stethoscope, "Care circle": Users, "Safety & AI": ShieldCheck } as const;
+const TAB_SUB: Record<string, string> = {
+  Today: "Today's doses. Only the elder marks a dose as taken.",
+  Medicines: "The medicine list. Family suggests, the elder decides.",
+  History: "The last 7 days, and who did what.",
+  Appointments: "Doctor visits and reminders.",
+  "Care circle": "Who is in this circle, and invites.",
+  "Safety & AI": "Safety notes, the doctor memo and email reminders.",
+};
+const CHIP: Record<string, { label: string; Icon: typeof CheckCircle2; cls: string }> = {
+  elder_confirmed: { label: "Confirmed", Icon: CheckCircle2, cls: "bg-emerald-50 text-emerald-800 ring-emerald-200" },
+  witnessed: { label: "Witnessed", Icon: Eye, cls: "bg-sky-50 text-sky-800 ring-sky-200" },
+  skipped: { label: "Skipped", Icon: MinusCircle, cls: "bg-amber-50 text-amber-900 ring-amber-200" },
+  missed: { label: "Missed", Icon: XCircle, cls: "bg-red-50 text-red-800 ring-red-200" },
+  pending: { label: "Not answered yet", Icon: Clock, cls: "bg-stone-100 text-stone-700 ring-stone-200" },
+};
+function StatusChip({ status, extra }: { status: string; extra?: string | null }) {
+  const c = CHIP[status] ?? CHIP.pending;
+  return <span className={`chip ${c.cls}`}><c.Icon size={16} aria-hidden="true" />{c.label}{extra ? ` · ${extra}` : ""}</span>;
+}
 type Tab = (typeof TABS)[number];
 
 async function api(path: string, init?: RequestInit) {
@@ -66,12 +90,20 @@ function dayLabel(iso: string) {
   return d.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", timeZone: "Asia/Kolkata" });
 }
 
-export default function CareApp() {
-  const [me, setMe] = useState<Me | null>(null);
+export default function CareApp({ hasSession = true, googleEnabled = false }: { hasSession?: boolean; googleEnabled?: boolean }) {
+  // Without a session cookie the landing page renders on the server (no loading flash / layout shift).
+  const [me, setMe] = useState<Me | null>(hasSession ? null : { authenticated: false });
   const [state, setState] = useState<State | null>(null);
   const [msg, setMsg] = useState<{ text: string; ok?: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
   const [invite, setInvite] = useState("");
+  const [pinReq, setPinReq] = useState<{ fn: (pin: string) => Promise<unknown>; okText?: string } | null>(null);
+
+  useEffect(() => {
+    if (!msg) return;
+    const t = setTimeout(() => setMsg(null), msg.ok ? 4000 : 8000);
+    return () => clearTimeout(t);
+  }, [msg]);
 
   const refresh = useCallback(async () => {
     const m = (await api("/api/auth/me")) as Me;
@@ -81,8 +113,14 @@ export default function CareApp() {
   }, []);
 
   useEffect(() => {
-    const code = new URLSearchParams(window.location.search).get("invite");
+    const qs = new URLSearchParams(window.location.search);
+    const code = qs.get("invite");
     if (code) setInvite(code);
+    const authError = qs.get("auth_error");
+    if (authError) {
+      setMsg({ text: authError === "google_unavailable" ? "Google sign-in is not available right now. Please use email." : "Google sign-in did not finish. Please try again or use email." });
+      window.history.replaceState(null, "", window.location.pathname + (code ? `?invite=${encodeURIComponent(code)}` : ""));
+    }
     refresh().catch((e) => setMsg({ text: String(e.message || e) }));
   }, [refresh]);
 
@@ -102,113 +140,164 @@ export default function CareApp() {
 
   /** Every authoring action asks for the member's personal PIN again. */
   function withPin(fn: (pin: string) => Promise<unknown>, okText?: string) {
-    const pin = window.prompt("Enter your PIN to confirm");
-    if (!pin) return;
-    return act(() => fn(pin), okText);
+    setPinReq({ fn, okText });
   }
 
-  return (
-    <main className="mx-auto max-w-6xl px-4 py-6 pb-24">
-      <TopBar me={me} state={state} onLogout={() => act(() => api("/api/auth/logout", { method: "POST" }))} />
+  const logout = () => act(() => api("/api/auth/logout", { method: "POST" }));
+  const overlay = (
+    <>
       {msg && (
-        <p role="status" className={`mb-4 rounded-xl border px-4 py-3 ${msg.ok ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-red-200 bg-red-50 text-red-800"}`}>
-          {msg.text}
-        </p>
+        <div className="no-print fixed inset-x-4 bottom-24 z-40 flex justify-center lg:bottom-6 lg:left-auto lg:right-6 lg:justify-end">
+          <p role="status" className={`flex max-w-md items-start gap-2 rounded-2xl border px-4 py-3 shadow-lg ${msg.ok ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-red-200 bg-red-50 text-red-800"}`}>
+            {msg.ok ? <CheckCircle2 size={20} className="mt-0.5 shrink-0" aria-hidden="true" /> : <XCircle size={20} className="mt-0.5 shrink-0" aria-hidden="true" />}
+            <span>{msg.text}</span>
+            <button type="button" className="ml-2 font-semibold underline" onClick={() => setMsg(null)} aria-label="Dismiss message">×</button>
+          </p>
+        </div>
       )}
-      {!me ? (
-        <p className="py-16 text-lg">Loading…</p>
-      ) : !me.authenticated ? (
-        <Landing busy={busy} act={act} invite={invite} />
-      ) : !state ? (
-        <Onboarding me={me} busy={busy} act={act} invite={invite} />
-      ) : (
-        <Dashboard state={state} busy={busy} act={act} withPin={withPin} setMsg={setMsg} />
+      {pinReq && (
+        <PinDialog
+          onCancel={() => setPinReq(null)}
+          onSubmit={(pin) => {
+            const req = pinReq;
+            setPinReq(null);
+            void act(() => req.fn(pin), req.okText);
+          }}
+        />
       )}
-      <footer className="mt-10 border-t pt-4 text-sm text-[var(--muted)]">
-        <p className="font-semibold text-[var(--danger)]">Emergency: call 108 or go to the nearest hospital.</p>
-        <p>ApnaHaath is a care log. It is not a doctor and does not start, stop or change medicines. Talk to a qualified doctor or pharmacist.</p>
-      </footer>
-    </main>
+    </>
+  );
+
+  if (!me) {
+    return <main className="mx-auto min-h-[60vh] max-w-6xl px-5 py-16" aria-busy="true"><p className="text-lg text-[var(--muted)]">Opening your care circle…</p></main>;
+  }
+  if (!me.authenticated) {
+    return (
+      <>
+        <Landing
+          busy={busy}
+          invite={invite}
+          googleEnabled={googleEnabled}
+          toggles={<DisplayToggles />}
+          onAuth={async (path, body, okText) => {
+            setBusy(true);
+            setMsg(null);
+            try {
+              const res = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+              const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+              if (!res.ok) setMsg({ text: String(data.error || "Something went wrong") });
+              else if (okText) setMsg({ text: okText, ok: true });
+              if (res.ok && !data.needsVerification && path !== "/api/auth/resend") await refresh();
+              return { ok: res.ok, ...data };
+            } catch {
+              setMsg({ text: "Network problem. Please try again." });
+              return { ok: false };
+            } finally {
+              setBusy(false);
+            }
+          }}
+        />
+        {overlay}
+      </>
+    );
+  }
+  if (!state) {
+    return (
+      <>
+        <main className="mx-auto max-w-5xl px-5 py-8 pb-24">
+          <TopBar me={me} state={null} onLogout={logout} />
+          <Onboarding me={me} busy={busy} act={act} invite={invite} />
+          <AppFooter />
+        </main>
+        {overlay}
+      </>
+    );
+  }
+  return (
+    <>
+      <Dashboard state={state} busy={busy} act={act} withPin={withPin} setMsg={setMsg} onLogout={logout} />
+      {overlay}
+    </>
   );
 }
 
-function TopBar({ me, state, onLogout }: { me: Me | null; state: State | null; onLogout: () => void }) {
+function AppFooter() {
   return (
-    <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
-      <div>
-        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[var(--brand)]">ApnaHaath</p>
-        {state && (
-          <p className="text-lg">
-            Care circle for <strong>{state.household.elder_name}</strong> · you are <strong>{state.me.name}</strong> ({ROLE_LABEL[state.me.role]})
-          </p>
-        )}
-      </div>
+    <footer className="mt-12 border-t border-stone-200 pt-5 text-sm text-[var(--muted)]">
+      <p className="font-semibold text-[var(--danger)]">Emergency: call 108 or go to the nearest hospital.</p>
+      <p>ApnaHaath is a care log. It is not a doctor and does not start, stop or change medicines. Talk to a qualified doctor or pharmacist.</p>
+    </footer>
+  );
+}
+
+/** Larger text and high contrast, remembered on this device. */
+function DisplayToggles() {
+  const [large, setLarge] = useState(false);
+  const [contrast, setContrast] = useState(false);
+  useEffect(() => {
+    try {
+      setLarge(localStorage.getItem("ah-large") === "1");
+      setContrast(localStorage.getItem("ah-contrast") === "1");
+    } catch { /* storage blocked */ }
+  }, []);
+  useEffect(() => {
+    document.documentElement.classList.toggle("ah-large", large);
+    document.documentElement.classList.toggle("ah-contrast", contrast);
+    try {
+      localStorage.setItem("ah-large", large ? "1" : "0");
+      localStorage.setItem("ah-contrast", contrast ? "1" : "0");
+    } catch { /* storage blocked */ }
+  }, [large, contrast]);
+  return (
+    <div className="no-print mb-3 flex flex-wrap gap-2" role="group" aria-label="Display settings">
+      <button type="button" className="btn-ghost" aria-pressed={large} onClick={() => setLarge((v) => !v)}>Larger text</button>
+      <button type="button" className="btn-ghost" aria-pressed={contrast} onClick={() => setContrast((v) => !v)}>High contrast</button>
+    </div>
+  );
+}
+
+function PinDialog({ onSubmit, onCancel }: { onSubmit: (pin: string) => void; onCancel: () => void }) {
+  const [pin, setPin] = useState("");
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onCancel(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onCancel]);
+  return (
+    <div className="no-print fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" role="presentation" onClick={onCancel}>
+      <form
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="pin-title"
+        className="panel w-full max-w-sm"
+        onClick={(e) => e.stopPropagation()}
+        onSubmit={(e) => { e.preventDefault(); if (/^\d{4,8}$/.test(pin)) onSubmit(pin); }}
+      >
+        <h2 id="pin-title" className="text-xl font-semibold">Confirm with your PIN</h2>
+        <p className="mt-1 text-sm text-[var(--muted)]">Every change in the care log is signed with your personal PIN.</p>
+        <label className="mt-3 block text-sm font-semibold" htmlFor="pin-input">PIN (4–8 digits)</label>
+        <input id="pin-input" className="input mt-1 text-center text-2xl tracking-[0.5em]" type="password" inputMode="numeric" autoComplete="one-time-code" pattern="\d{4,8}" maxLength={8} autoFocus value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))} />
+        <div className="mt-4 flex justify-end gap-2">
+          <button type="button" className="btn-ghost" onClick={onCancel}>Cancel</button>
+          <button type="submit" className="btn-primary" disabled={!/^\d{4,8}$/.test(pin)}>Confirm</button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function TopBar({ me, onLogout }: { me: Me | null; state: State | null; onLogout: () => void }) {
+  return (
+    <header className="mb-8 flex flex-wrap items-center justify-between gap-3">
+      <p className="flex items-center gap-2 text-lg font-bold text-[var(--brand)]"><HandHeart size={24} aria-hidden="true" /> ApnaHaath</p>
       {me?.authenticated && (
-        <button className="btn-ghost" onClick={onLogout}>
-          Sign out
-        </button>
+        <button className="btn-ghost" onClick={onLogout}><LogOut size={18} aria-hidden="true" /> Sign out</button>
       )}
     </header>
   );
 }
 
 type ActFn = (fn: () => Promise<unknown>, okText?: string) => Promise<void>;
-
-function Landing({ busy, act, invite }: { busy: boolean; act: ActFn; invite: string }) {
-  const [mode, setMode] = useState<"signup" | "login">(invite ? "signup" : "signup");
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  return (
-    <>
-      <section className="mb-8 grid gap-6 md:grid-cols-[1.3fr_1fr] md:items-center">
-        <div>
-          <h1 className="display text-4xl leading-tight md:text-5xl">
-            Dawai unke haath se.
-            <span className="block text-[var(--brand-2)]">Log unke naam se.</span>
-          </h1>
-          <p className="mt-2 text-lg italic text-[var(--muted)]">Medicine from her hand. The log in her name.</p>
-          <p className="mt-4 max-w-xl text-lg">
-            A shared medicine log for an elder, her caretaker and her family. Only the elder can mark a dose as taken. Family can suggest changes, but nothing changes until she says yes. AI can warn — it can never change a prescription.
-          </p>
-          <div className="mt-6 flex flex-wrap gap-3">
-            <button className="btn-accent" disabled={busy} onClick={() => act(() => api("/api/demo/start", { method: "POST" }), "Demo care circle ready. You are signed in as Priya (family). Use the buttons above to view as Kamla or Sunita.")}>
-              Try the demo household
-            </button>
-            <a className="btn-ghost" href="#account">Create your own care circle</a>
-          </div>
-          <p className="mt-2 text-sm text-[var(--muted)]">The demo creates a fresh, private copy with a fictional patient (Kamla Devi Shukla, 74, Lucknow).</p>
-        </div>
-        <ol className="panel space-y-3 text-base">
-          <li><strong>1. Sign up</strong> with your name, email and a password.</li>
-          <li><strong>2. Create a care circle</strong> for your elder and set your PIN.</li>
-          <li><strong>3. Invite</strong> the elder, the caretaker and other family with one-time codes.</li>
-          <li><strong>4. Suggest medicines.</strong> The elder accepts, then confirms each dose herself.</li>
-        </ol>
-      </section>
-
-      <section id="account" className="panel mx-auto max-w-xl">
-        <div className="mb-4 flex gap-2">
-          <button className={mode === "signup" ? "btn-primary" : "btn-ghost"} onClick={() => setMode("signup")}>Sign up</button>
-          <button className={mode === "login" ? "btn-primary" : "btn-ghost"} onClick={() => setMode("login")}>Sign in</button>
-        </div>
-        {invite && <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-amber-900">You have an invite code. Sign up or sign in first, then you can join.</p>}
-        <form
-          className="grid gap-3"
-          onSubmit={(e) => {
-            e.preventDefault();
-            act(() => api(mode === "signup" ? "/api/auth/signup" : "/api/auth/login", { method: "POST", body: JSON.stringify(mode === "signup" ? { name, email, password } : { email, password }) }));
-          }}
-        >
-          {mode === "signup" && <input className="input" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} aria-label="Your name" required />}
-          <input className="input" type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} aria-label="Email" required />
-          <input className="input" type="password" placeholder={mode === "signup" ? "Password (at least 8 characters)" : "Password"} value={password} onChange={(e) => setPassword(e.target.value)} aria-label="Password" required minLength={mode === "signup" ? 8 : 1} />
-          <button className="btn-primary" disabled={busy} type="submit">{mode === "signup" ? "Create account" : "Sign in"}</button>
-        </form>
-      </section>
-    </>
-  );
-}
 
 function Onboarding({ me, busy, act, invite }: { me: Me; busy: boolean; act: ActFn; invite: string }) {
   const [elder, setElder] = useState("");
@@ -229,7 +318,7 @@ function Onboarding({ me, busy, act, invite }: { me: Me; busy: boolean; act: Act
           <div className="mt-3 flex flex-wrap gap-2">
             {me.households.map((h) => (
               <button key={h.id} className="btn-ghost" onClick={() => act(() => api("/api/households/select", { method: "POST", body: JSON.stringify({ householdId: h.id }) }))}>
-                {h.elder_name} · {ROLE_LABEL[h.role]}{h.is_demo ? " · demo" : ""}
+                {h.elder_name} · {ROLE_LABEL[h.role]}
               </button>
             ))}
           </div>
@@ -238,7 +327,7 @@ function Onboarding({ me, busy, act, invite }: { me: Me; busy: boolean; act: Act
       <div className="grid gap-6 md:grid-cols-2">
         <section className="panel">
           <h2 className="text-xl font-semibold">Create a care circle</h2>
-          <form className="mt-3 grid gap-3" onSubmit={(e) => { e.preventDefault(); act(() => api("/api/households", { method: "POST", body: JSON.stringify({ elder_name: elder, elder_age: age ? Number(age) : null, city, language, role, pin }) }), "Care circle created. Next: invite the elder and caretaker from the Care circle tab."); }}>
+          <form className="mt-3 grid gap-3" onSubmit={(e) => { e.preventDefault(); act(() => api("/api/households", { method: "POST", body: JSON.stringify({ elder_name: elder, elder_age: age ? Number(age) : null, city, language, role, pin }) }), "Care circle created. Next: add medicines, then invite the elder and caretaker from Care circle."); }}>
             <input className="input" placeholder="Elder's name (e.g. Kamla Devi)" value={elder} onChange={(e) => setElder(e.target.value)} aria-label="Elder's name" required />
             <div className="grid grid-cols-2 gap-3">
               <input className="input" type="number" min={40} max={120} placeholder="Age" value={age} onChange={(e) => setAge(e.target.value)} aria-label="Elder's age" />
@@ -274,54 +363,75 @@ function Onboarding({ me, busy, act, invite }: { me: Me; busy: boolean; act: Act
   );
 }
 
-function Dashboard({ state, busy, act, withPin, setMsg }: { state: State; busy: boolean; act: ActFn; withPin: (fn: (pin: string) => Promise<unknown>, ok?: string) => void; setMsg: (m: { text: string; ok?: boolean } | null) => void }) {
+function Dashboard({ state, busy, act, withPin, setMsg, onLogout }: { state: State; busy: boolean; act: ActFn; withPin: (fn: (pin: string) => Promise<unknown>, ok?: string) => void; setMsg: (m: { text: string; ok?: boolean } | null) => void; onLogout: () => void }) {
   const [tab, setTab] = useState<Tab>("Today");
   const role = state.me.role;
   const pendingForElder = state.proposals.filter((p) => p.status === "pending");
+  const go = (t: Tab) => { setTab(t); setMsg(null); window.scrollTo({ top: 0 }); };
+  const badge = (t: Tab) => (t === "Medicines" && role === "elder" && pendingForElder.length > 0 ? pendingForElder.length : 0);
   return (
-    <>
-      {state.demoCredentials && (
-        <section className="panel mb-6 border-amber-300 bg-amber-50">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="font-semibold text-amber-900">Demo care circle (fictional patient). These logins work only for this demo copy.</p>
-              <p className="text-sm text-amber-900">View the app as:</p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {(["elder", "caretaker", "family"] as Role[]).map((r) => (
-                <button key={r} className={role === r ? "btn-primary" : "btn-ghost"} disabled={busy || role === r} onClick={() => act(() => api("/api/demo/switch", { method: "POST", body: JSON.stringify({ role: r }) }), `Now viewing as ${ROLE_LABEL[r]}.`)}>
-                  {state.demoCredentials?.find((c) => c.role === r)?.name.split(" ")[0]} ({ROLE_LABEL[r]})
-                </button>
-              ))}
-            </div>
+    <div className="min-h-screen lg:grid lg:grid-cols-[272px_1fr]">
+      <aside className="no-print sticky top-0 hidden h-screen flex-col border-r border-stone-200 bg-white px-4 py-6 lg:flex">
+        <p className="flex items-center gap-2 px-2 text-lg font-bold text-[var(--brand)]"><HandHeart size={24} aria-hidden="true" /> ApnaHaath</p>
+        <div className="mt-6 rounded-2xl bg-[var(--soft)] p-4">
+          <p className="text-xs font-semibold uppercase tracking-wider text-[var(--muted)]">Care circle</p>
+          <p className="mt-1 text-lg font-bold">{state.household.elder_name}</p>
+          <p className="text-sm text-[var(--muted)]">You: {state.me.name} · {ROLE_LABEL[role]}</p>
+        </div>
+        <nav className="mt-6 space-y-1" aria-label="Sections">
+          {TABS.map((t) => {
+            const Icon = TAB_ICON[t];
+            return (
+              <button key={t} className="nav-item" aria-current={tab === t ? "page" : undefined} onClick={() => go(t)}>
+                <Icon size={20} aria-hidden="true" /> <span className="flex-1">{t}</span>
+                {badge(t) > 0 && <span className="rounded-full bg-[var(--brand-2)] px-2 text-xs font-bold text-white">{badge(t)}</span>}
+              </button>
+            );
+          })}
+        </nav>
+        <div className="mt-auto space-y-3">
+          <DisplayToggles />
+          <button className="nav-item" onClick={onLogout}><LogOut size={20} aria-hidden="true" /> Sign out</button>
+        </div>
+      </aside>
+
+      <div className="min-w-0">
+        <header className="no-print flex items-center justify-between gap-3 border-b border-stone-200 bg-white px-4 py-3 lg:hidden">
+          <div>
+            <p className="flex items-center gap-1.5 font-bold text-[var(--brand)]"><HandHeart size={20} aria-hidden="true" /> ApnaHaath</p>
+            <p className="text-sm text-[var(--muted)]">{state.household.elder_name} · you are {ROLE_LABEL[role]}</p>
           </div>
-          <details className="mt-2 text-sm text-amber-900">
-            <summary className="cursor-pointer">Show demo logins and PINs</summary>
-            <ul className="mt-2 grid gap-1 md:grid-cols-3">
-              {state.demoCredentials.map((c) => (
-                <li key={c.role}><strong>{c.name}</strong> ({ROLE_LABEL[c.role]})<br />{c.email}<br />password <code>{c.password}</code> · PIN <code>{c.pin}</code></li>
-              ))}
-            </ul>
-          </details>
-        </section>
-      )}
+          <button className="btn-ghost px-3" onClick={onLogout} aria-label="Sign out"><LogOut size={18} aria-hidden="true" /></button>
+        </header>
+        <main className="mx-auto max-w-6xl px-4 py-6 pb-28 lg:px-10 lg:py-10">
+          <div className="mb-6">
+            <h1 className="text-3xl font-bold">{tab}</h1>
+            <p className="mt-1 text-[var(--muted)]">{TAB_SUB[tab]}</p>
+          </div>
+          {tab === "Today" && <Today state={state} busy={busy} withPin={withPin} setMsg={setMsg} go={go} />}
+          {tab === "Medicines" && <Medicines state={state} busy={busy} withPin={withPin} />}
+          {tab === "History" && <><WeeklySummary state={state} busy={busy} act={act} /><History state={state} /></>}
+          {tab === "Appointments" && <Appointments state={state} busy={busy} withPin={withPin} />}
+          {tab === "Safety & AI" && <Safety state={state} busy={busy} act={act} />}
+          {tab === "Care circle" && <Circle state={state} busy={busy} act={act} />}
+          <AppFooter />
+          <div className="mt-4 lg:hidden"><DisplayToggles /></div>
+        </main>
+      </div>
 
-      <nav className="mb-6 flex flex-wrap gap-2" aria-label="Sections">
-        {TABS.map((t) => (
-          <button key={t} className={tab === t ? "btn-primary" : "btn-ghost"} onClick={() => setTab(t)}>
-            {t}
-            {t === "Medicines" && role === "elder" && pendingForElder.length > 0 ? ` (${pendingForElder.length})` : ""}
-          </button>
-        ))}
+      <nav className="no-print fixed inset-x-0 bottom-0 z-30 grid grid-cols-6 border-t border-stone-200 bg-white/95 backdrop-blur lg:hidden" aria-label="Sections">
+        {TABS.map((t) => {
+          const Icon = TAB_ICON[t];
+          return (
+            <button key={t} className={`relative flex min-h-[64px] flex-col items-center justify-center gap-1 px-1 text-[11px] font-semibold ${tab === t ? "text-[var(--brand)]" : "text-[var(--muted)]"}`} aria-current={tab === t ? "page" : undefined} onClick={() => go(t)}>
+              <Icon size={22} aria-hidden="true" />
+              <span className="leading-tight">{t === "Appointments" ? "Visits" : t === "Care circle" ? "Circle" : t === "Safety & AI" ? "Safety" : t}</span>
+              {badge(t) > 0 && <span className="absolute right-3 top-2 h-2.5 w-2.5 rounded-full bg-[var(--brand-2)]" aria-label="needs your answer" />}
+            </button>
+          );
+        })}
       </nav>
-
-      {tab === "Today" && <Today state={state} busy={busy} withPin={withPin} setMsg={setMsg} />}
-      {tab === "Medicines" && <Medicines state={state} busy={busy} withPin={withPin} />}
-      {tab === "History" && <><WeeklySummary state={state} busy={busy} act={act} /><History state={state} /></>}
-      {tab === "Appointments" && <Appointments state={state} busy={busy} withPin={withPin} />}
-      {tab === "Safety" && <Safety state={state} busy={busy} act={act} />}
-      {tab === "Care circle" && <Circle state={state} busy={busy} act={act} />}
-    </>
+    </div>
   );
 }
 
@@ -338,7 +448,7 @@ function Empty({ children }: { children: React.ReactNode }) {
   return <p className="rounded-xl border border-dashed p-6 text-center text-[var(--muted)]">{children}</p>;
 }
 
-function Today({ state, busy, withPin, setMsg }: { state: State; busy: boolean; withPin: (fn: (pin: string) => Promise<unknown>, ok?: string) => void; setMsg: (m: { text: string; ok?: boolean } | null) => void }) {
+function Today({ state, busy, withPin, setMsg, go }: { state: State; busy: boolean; withPin: (fn: (pin: string) => Promise<unknown>, ok?: string) => void; setMsg: (m: { text: string; ok?: boolean } | null) => void; go: (t: Tab) => void }) {
   const role = state.me.role;
   const [skipFor, setSkipFor] = useState<string | null>(null);
   const [med, setMed] = useState("");
@@ -350,20 +460,30 @@ function Today({ state, busy, withPin, setMsg }: { state: State; busy: boolean; 
       <section className="panel">
         <h2 className="text-2xl font-semibold">Today&apos;s medicines</h2>
         <div className="mt-4 space-y-3">
-          {state.doseSlots.length === 0 && <Empty>No medicines yet. {role === "family" ? "Go to Medicines to suggest the first one." : "Family can suggest medicines; you accept them."}</Empty>}
+          {state.doseSlots.length === 0 && (
+            <div className="rounded-2xl border border-dashed border-stone-300 p-8 text-center">
+              <Pill size={36} className="mx-auto text-[var(--brand)]" aria-hidden="true" />
+              <p className="mt-3 text-lg font-semibold">No medicines for today yet</p>
+              <p className="mx-auto mt-1 max-w-sm text-[var(--muted)]">{role === "elder" ? "Add your medicines, or ask family to suggest them — you accept each one." : "Suggest the first medicine. The elder accepts it, then it shows up here every day."}</p>
+              <div className="mt-4 flex flex-wrap justify-center gap-2">
+                <button className="btn-primary" onClick={() => go("Medicines")}><Pill size={18} aria-hidden="true" /> Add a medicine</button>
+                {state.me.isOwner && <button className="btn-ghost" onClick={() => go("Care circle")}><Users size={18} aria-hidden="true" /> Invite members</button>}
+              </div>
+            </div>
+          )}
           {state.doseSlots.map((slot) => (
-            <article key={slot.id} className="rounded-xl border border-stone-200 bg-white p-4" style={{ borderLeftWidth: 8, borderLeftColor: slot.color_band }}>
+            <article key={slot.id} className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm" style={{ borderLeftWidth: 8, borderLeftColor: slot.color_band }}>
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <h3 className="text-xl font-semibold">{slot.medicine_name}</h3>
-                  <p className="text-[var(--muted)]">{time12(slot.scheduled_at)} · {slot.instructions}</p>
-                  <p className="mt-1">{STATUS_LABEL[slot.status] ?? slot.status}{slot.skip_reason ? ` — ${slot.skip_reason}` : ""}</p>
+                  <h3 className={role === "elder" ? "text-2xl font-bold md:text-3xl" : "text-xl font-semibold"}>{slot.medicine_name}</h3>
+                  <p className={`text-[var(--muted)] ${role === "elder" ? "text-lg" : ""}`}>{time12(slot.scheduled_at)} · {slot.instructions}</p>
+                  <p className="mt-2"><StatusChip status={slot.status} extra={slot.skip_reason} /><span className="sr-only"> ({STATUS_LABEL[slot.status] ?? slot.status})</span></p>
                 </div>
                 {role === "elder" && slot.status === "pending" && skipFor !== slot.id && (
-                  <div className="flex flex-wrap gap-2">
-                    <button className="btn-primary" disabled={busy} onClick={() => withPin((pin) => api("/api/doses/confirm", { method: "POST", body: JSON.stringify({ doseSlotId: slot.id, pin }) }), "Saved: you took it.")}>Yes, I took it</button>
-                    <button className="btn-ghost" disabled={busy} onClick={() => setSkipFor(slot.id)}>Not now</button>
-                    <button className="btn-ghost" disabled={busy} onClick={() => setMsg({ text: "Okay. This dose stays open — you can answer later.", ok: true })}>Later</button>
+                  <div className="flex w-full flex-wrap gap-3 sm:w-auto">
+                    <button className="btn-primary min-h-[72px] w-full px-10 text-2xl sm:w-auto" disabled={busy} onClick={() => withPin((pin) => api("/api/doses/confirm", { method: "POST", body: JSON.stringify({ doseSlotId: slot.id, pin }) }), "Saved: you took it.")}>Yes, I took it</button>
+                    <button className="btn-ghost min-h-[60px] flex-1 text-lg sm:flex-none" disabled={busy} onClick={() => setSkipFor(slot.id)}>Not now</button>
+                    <button className="btn-ghost min-h-[60px] flex-1 text-lg sm:flex-none" disabled={busy} onClick={() => setMsg({ text: "Okay. This dose stays open — you can answer later.", ok: true })}>Later</button>
                   </div>
                 )}
                 {role === "elder" && slot.status === "pending" && skipFor === slot.id && (
@@ -531,32 +651,39 @@ function WeeklySummary({ state, busy, act }: { state: State; busy: boolean; act:
             {w.stats.rate !== null && <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-900">Elder-confirmation rate {w.stats.rate}%</span>}</p>
           <p className={`whitespace-pre-line ${role === "elder" ? "text-2xl leading-relaxed" : "text-lg"}`}>{text}</p>
           <p className="mt-3 text-xs text-[var(--muted)]">{w.disclaimer}</p>
+          <div className="mt-3"><ShareButtons text={`ApnaHaath weekly summary\n\n${text}\n\n${w.disclaimer}`} label="weekly summary" /></div>
         </div>
       )}
     </section>
   );
 }
 
+function lastSevenIstDays(): string[] {
+  const today = new Date(Date.now() + 5.5 * 3600_000).toISOString().slice(0, 10);
+  const base = new Date(`${today}T12:00:00Z`).getTime();
+  return Array.from({ length: 7 }, (_, i) => new Date(base - i * 86_400_000).toISOString().slice(0, 10));
+}
+
 function History({ state }: { state: State }) {
-  const byDay = new Map<string, Slot[]>();
+  const byDay = new Map<string, Slot[]>(lastSevenIstDays().map((d) => [d, [] as Slot[]]));
   for (const s of state.history) {
     const d = s.scheduled_at.slice(0, 10);
     byDay.set(d, [...(byDay.get(d) ?? []), s]);
   }
-  const badge: Record<string, string> = { elder_confirmed: "bg-emerald-100 text-emerald-900", skipped: "bg-amber-100 text-amber-900", missed: "bg-red-100 text-red-900", pending: "bg-stone-100 text-stone-700" };
   return (
     <div className="grid gap-6 lg:grid-cols-2">
       <section className="panel">
         <h2 className="text-2xl font-semibold">Last 7 days</h2>
-        {byDay.size === 0 && <Empty>No doses recorded yet.</Empty>}
-        {[...byDay.entries()].map(([day, slots]) => (
+        <p className="text-sm text-[var(--muted)]">Days before the care circle started, or with no medicines due, show as “no doses”.</p>
+        {[...byDay.entries()].sort((a, b) => b[0].localeCompare(a[0])).map(([day, slots]) => (
           <div key={day} className="mt-4">
             <h3 className="font-semibold">{dayLabel(day)}</h3>
+            {slots.length === 0 && <p className="mt-1 rounded-lg border border-dashed bg-white/60 px-3 py-2 text-[var(--muted)]">No doses</p>}
             <ul className="mt-1 grid gap-1">
               {slots.sort((x, y) => x.scheduled_at.localeCompare(y.scheduled_at)).map((s) => (
                 <li key={s.id} className="flex items-center justify-between rounded-lg border bg-white px-3 py-2">
                   <span>{time12(s.scheduled_at)} · {s.medicine_name}</span>
-                  <span className={`rounded-full px-2 py-0.5 text-sm ${badge[s.status] ?? ""}`}>{STATUS_LABEL[s.status]?.split(" —")[0] ?? s.status}{s.skip_reason ? ` (${s.skip_reason})` : ""}</span>
+                  <StatusChip status={s.status} extra={s.skip_reason} />
                 </li>
               ))}
             </ul>
@@ -611,12 +738,35 @@ function Appointments({ state, busy, withPin }: { state: State; busy: boolean; w
             <input className="input" type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} aria-label="Date and time (IST)" />
           </div>
           <div className="mt-3 flex gap-2">
-            <button className="btn-primary" disabled={busy || !doctor || !place || !when} onClick={() => withPin((pin) => api("/api/appointments", { method: "POST", body: JSON.stringify({ pin, doctor, place, scheduled_at: when, ...(editId ? { id: editId } : {}) }) }).then(() => setEditId(null)), "Appointment saved.")}>{editId ? "Save changes" : "Add appointment"}</button>
-            {editId && <button className="btn-ghost" onClick={() => setEditId(null)}>Cancel</button>}
+            <button className="btn-primary" disabled={busy || !doctor || !place || !when} onClick={() => withPin((pin) => api("/api/appointments", { method: "POST", body: JSON.stringify({ pin, doctor, place, scheduled_at: when, ...(editId ? { id: editId } : {}) }) }).then(() => { setEditId(null); setDoctor(""); setPlace(""); setWhen(""); }), "Appointment saved.")}>{busy ? "Saving…" : editId ? "Save changes" : "Add appointment"}</button>
+            {editId && <button className="btn-ghost" disabled={busy} onClick={() => { setEditId(null); setDoctor(""); setPlace(""); setWhen(""); }}>Cancel</button>}
           </div>
         </section>
       )}
     </div>
+  );
+}
+
+/** Copy a care message, share it with the native share sheet (when available), or open WhatsApp. */
+function ShareButtons({ text, label = "message" }: { text: string; label?: string }) {
+  const [copied, setCopied] = useState(false);
+  const [canShare, setCanShare] = useState(false);
+  useEffect(() => setCanShare(typeof navigator !== "undefined" && typeof navigator.share === "function"), []);
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      window.prompt("Copy this text", text);
+    }
+  }
+  return (
+    <span className="no-print inline-flex flex-wrap gap-2">
+      <button type="button" className="btn-ghost" onClick={copy} aria-label={`Copy this ${label}`}>{copied ? "Copied ✓" : "Copy"}</button>
+      {canShare && <button type="button" className="btn-ghost" onClick={() => navigator.share({ title: "ApnaHaath", text }).catch(() => undefined)} aria-label={`Share this ${label}`}>Share</button>}
+      <a className="btn-ghost" href={`https://wa.me/?text=${encodeURIComponent(text)}`} target="_blank" rel="noopener noreferrer" aria-label={`Send this ${label} on WhatsApp`}>WhatsApp</a>
+    </span>
   );
 }
 
@@ -638,6 +788,7 @@ function Safety({ state, busy, act }: { state: State; busy: boolean; act: ActFn 
             <article key={c.id} className="rounded-xl border border-amber-200 bg-amber-50/60 p-4">
               <p className="text-sm uppercase tracking-wide text-amber-800">{c.severity === "review_required" ? "Needs a doctor's review" : c.severity === "urgent_review" ? "Talk to a doctor soon" : "For information"}</p>
               <h3 className="text-lg font-semibold">{c.title}</h3>
+              {c.created_at && <p className="text-xs text-[var(--muted)]">Added {dayLabel(c.created_at)}, {time12(c.created_at)} IST</p>}
               <p className="mt-2 text-lg">{role === "family" ? c.family_line_en : role === "caretaker" ? c.caretaker_line_hi : c.elder_line_hi}</p>
               <p className="mt-2 text-sm"><strong>Tell the doctor:</strong> {c.tell_doctor}</p>
               <p className="mt-2 text-sm font-semibold text-[var(--danger)]">{c.emergency_line}</p>
@@ -663,16 +814,34 @@ function Safety({ state, busy, act }: { state: State; busy: boolean; act: ActFn 
           <h2 className="text-xl font-semibold">Doctor brief</h2>
           <p className="text-sm text-[var(--muted)]">A short summary of the week to show at the clinic.</p>
           <button className="btn-primary mt-3" disabled={busy} onClick={() => act(async () => setBrief((await api("/api/brief", { method: "POST" })).brief))}>Make doctor brief</button>
-          {brief && <pre className="mt-3 whitespace-pre-wrap rounded-xl bg-stone-100 p-3 text-sm">{brief}</pre>}
+          {brief && (
+            <>
+              <div className="print-memo mt-3 rounded-xl bg-stone-100 p-3">
+                <p className="print-only text-sm font-semibold uppercase tracking-[0.2em]">ApnaHaath · Doctor memo</p>
+                <p className="print-only mb-2 text-sm">For {state.household.elder_name}{state.household.elder_age ? `, ${state.household.elder_age}` : ""} · {state.household.city} · printed {new Date().toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", year: "numeric" })}</p>
+                <pre className="whitespace-pre-wrap font-sans text-sm">{brief}</pre>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button type="button" className="btn-primary no-print" onClick={() => window.print()}>Print doctor memo</button>
+                <ShareButtons text={brief} label="doctor memo" />
+              </div>
+            </>
+          )}
         </section>
         {role === "family" && (
           <section className="panel">
             <h2 className="text-xl font-semibold">Email reminders</h2>
-            <p className="text-sm text-[var(--muted)]">Upcoming doses, missed doses (never skips) and appointments. Each email is sent once.</p>
+            <p className="text-sm text-[var(--muted)]">Upcoming doses, missed doses (never skips) and appointments. Each reminder is sent once.</p>
+            <p className="mt-1 rounded-lg bg-stone-100 px-3 py-2 text-sm">Reminders (upcoming dose, missed dose, appointment) are emailed to family members — and the elder gets her own one-tap “I took it” link. Each is also kept in the list below with its email status.</p>
             <button className="btn-ghost mt-3" disabled={busy} onClick={() => act(() => api("/api/reminders/run", { method: "POST" }), "Reminder check finished.")}>Run reminder check now</button>
             {state.outbox.length === 0 && <p className="mt-2 text-sm text-[var(--muted)]">No emails yet.</p>}
             <ul className="mt-2 space-y-1 text-sm">
-              {state.outbox.map((o) => <li key={o.id} className="border-b py-1">{o.subject} → {o.to_email} <span className="text-[var(--muted)]">({o.status === "mock" ? "in-app only" : o.status})</span></li>)}
+              {state.outbox.map((o) => (
+                <li key={o.id} className="border-b py-2">
+                  <p>{o.subject} → {o.to_email} <span className={`ml-1 rounded-full px-2 py-0.5 text-xs ${o.status === "sent" ? "bg-emerald-100 text-emerald-900" : o.status === "failed" ? "bg-red-100 text-red-800" : "bg-stone-100 text-stone-700"}`}>{o.status === "mock" ? "in-app only" : o.status === "sent" ? "emailed" : o.status === "failed" ? "email failed" : o.status === "pending" ? "queued" : o.status}</span> <span className="text-xs text-[var(--muted)]">{dayLabel(o.created_at)} {time12(o.created_at)}</span></p>
+                  {o.body && <div className="mt-1"><ShareButtons text={`${o.subject}\n\n${o.body}`} label="reminder" /></div>}
+                </li>
+              ))}
             </ul>
           </section>
         )}
@@ -708,6 +877,7 @@ function Circle({ state, busy, act }: { state: State; busy: boolean; act: ActFn 
               <p>Invite code for <strong>{ROLE_LABEL[last.role]}</strong> (shown only once):</p>
               <p className="my-2 font-mono text-3xl tracking-widest">{last.code}</p>
               <p className="break-all text-sm">Link: {last.link}</p>
+              <div className="mt-2"><ShareButtons text={`You're invited to ${state.household.elder_name}'s care circle on ApnaHaath as ${ROLE_LABEL[last.role]}. Open ${last.link} (code ${last.code}, works once, expires in 48 hours).`} label="invite" /></div>
             </div>
           )}
           <h3 className="mt-4 font-semibold">Recent invites</h3>

@@ -12,7 +12,7 @@ export async function GET() {
   const households = await listUserHouseholds(user.id);
   return NextResponse.json({
     authenticated: true,
-    user: { id: user.id, name: user.name, email: user.email, is_demo: user.is_demo },
+    user: { id: user.id, name: user.name, email: user.email },
     households,
     activeHouseholdId: households.some((h) => h.id === s.hid) ? s.hid : null,
   });

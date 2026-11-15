@@ -1,5 +1,6 @@
 # Reference config for gcloud run services update / deploy
-# minScale 0 saves Catalyst trial credits while idle; maxScale 1 keeps one SQLite demo DB
+# Optional Google Cloud Run path. State lives in Postgres (DATABASE_URL, e.g. Neon) so instances are stateless.
+# Set env vars with: gcloud run services update apnahaath --set-env-vars=... (or Secret Manager).
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
@@ -11,7 +12,7 @@ spec:
     metadata:
       annotations:
         autoscaling.knative.dev/minScale: "0"
-        autoscaling.knative.dev/maxScale: "1"
+        autoscaling.knative.dev/maxScale: "3"
     spec:
       containerConcurrency: 80
       timeoutSeconds: 300

@@ -14,6 +14,9 @@ export async function POST(req: Request) {
   if ("error" in p) return p.error;
   const r = await verifyLogin(p.data.email, p.data.password);
   if (!r.ok) return NextResponse.json({ error: r.reason }, { status: r.status });
+  if (r.user.email_verified === 0) {
+    return NextResponse.json({ error: "Please verify your email first. Enter the 6-digit code we sent you.", needsVerification: true, email: r.user.email }, { status: 403 });
+  }
   const hh = await listUserHouseholds(r.user.id);
   return withSession(NextResponse.json({ ok: true, name: r.user.name }), r.user.id, hh[0]?.id ?? null);
 }

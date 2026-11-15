@@ -10,19 +10,32 @@ import {
   listMembers,
   updateDoseSlotStatus,
 } from "./db";
+import { createDoseToken } from "./doselink";
 import { deliverOutboxRow } from "./email";
+import { SITE_URL } from "./site";
 import { formatIstIso, minutesSince } from "./time";
-import type { ReminderOutbox } from "./types";
+import type { ReminderOutbox, Role } from "./types";
 
-/** Family members' real emails; demo households only email NOTIFY_EMAIL (else outbox-only). */
 export async function familyRecipients(hh: string): Promise<string[]> {
-  const household = await getHousehold(hh);
-  if (household?.is_demo) {
-    return [process.env.NOTIFY_EMAIL || "family.demo@demo.apnahaath.app"];
-  }
+  return (await recipients(hh, false)).map((r) => r.email);
+}
+
+export interface Recipient { email: string; uid: string | null; role: Role | null }
+
+/** Who gets reminder emails. Upcoming-dose emails also go to the elder (with her personal one-tap link). */
+export async function recipients(hh: string, includeElder: boolean): Promise<Recipient[]> {
   return (await listMembers(hh))
-    .filter((m) => m.role === "family" && !m.is_demo)
-    .map((m) => m.email);
+    .filter((m) => (m.role === "family" || (includeElder && m.role === "elder")))
+    .map((m) => ({ email: m.email, uid: m.id, role: m.role }));
+}
+
+/** Personal one-tap link, emailed only to that member (kept out of the shared outbox). */
+export function doseLinkFooter(hh: string, slotId: string, r: Recipient): string {
+  if (!r.uid || !r.role) return "";
+  const url = `${SITE_URL}/api/doses/link?t=${createDoseToken({ hid: hh, sid: slotId, uid: r.uid, role: r.role })}`;
+  return r.role === "elder"
+    ? `Took it? Tap once to record it in your name (link works once, for 6 hours, only for you):\n${url}`
+    : `Saw the dose taken? Tap to record yourself as a witness (does not mark it taken; works once, for 6 hours):\n${url}`;
 }
 
 function hhmm(iso: string) {
@@ -33,12 +46,14 @@ export async function runMorningCheck(hh: string): Promise<{ queued: number; res
   await ensureTodaySlots(hh);
   const household = await getHousehold(hh);
   const elder = household?.elder_name ?? "your elder";
-  const to = await familyRecipients(hh);
+  const family = await recipients(hh, false);
+  const withElder = await recipients(hh, true);
   let queued = 0;
   const results: Array<{ id: string; status: string }> = [];
 
-  async function queue(kind: ReminderOutbox["kind"], key: string, subject: string, lines: string[]) {
-    for (const email of to) {
+  async function queue(kind: ReminderOutbox["kind"], key: string, subject: string, lines: string[], slotId?: string) {
+    for (const r of slotId ? withElder : family) {
+      const email = r.email;
       const row: ReminderOutbox = {
         id: `out-${randomUUID()}`,
         household_id: hh,
@@ -46,7 +61,7 @@ export async function runMorningCheck(hh: string): Promise<{ queued: number; res
         to_email: email,
         // Subjects never contain drug names or diagnoses
         subject,
-        body: [...lines, "", MEDICAL_DISCLAIMER, EMERGENCY_LINE].join("\n"),
+        body: [...lines, ...(slotId && r.uid ? ["", "(A personal one-tap link was included in this email only.)"] : []), "", MEDICAL_DISCLAIMER, EMERGENCY_LINE].join("\n"),
         idempotency_key: `${hh}:${key}:${email}`,
         status: "queued",
         created_at: formatIstIso(),
@@ -55,7 +70,7 @@ export async function runMorningCheck(hh: string): Promise<{ queued: number; res
       };
       if (await insertOutbox(row)) {
         queued += 1;
-        await deliverOutboxRow(row, Boolean(household?.is_demo) && !process.env.NOTIFY_EMAIL);
+        await deliverOutboxRow(row, false, slotId ? doseLinkFooter(hh, slotId, r) : "");
         results.push({ id: row.id, status: kind });
       }
     }
@@ -69,7 +84,7 @@ export async function runMorningCheck(hh: string): Promise<{ queued: number; res
       await queue("upcoming", `upcoming:${slot.id}`, "ApnaHaath: a dose is coming up", [
         `${elder} has ${slot.medicine_name} due at ${hhmm(slot.scheduled_at)} IST.`,
         "Only she can mark it as taken. A caretaker can only witness.",
-      ]);
+      ], slot.id);
     }
     if (age > MISS_GRACE_MINUTES) {
       await updateDoseSlotStatus(hh, slot.id, "missed", null);

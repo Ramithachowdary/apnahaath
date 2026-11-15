@@ -3,66 +3,126 @@
 @tailwind utilities;
 
 :root {
-  --bg: #f3efe6;
-  --ink: #1c1917;
-  --muted: #57534e;
+  --bg: #f6f7f5;
+  --ink: #111827;
+  --muted: #4b5563;
   --brand: #0f5c4c;
-  --brand-2: #c45c26;
-  --card: #fffdf8;
-  --line: #d6d3d1;
+  --brand-2: #a84a1c;
+  --card: #ffffff;
+  --line: #e5e7eb;
   --danger: #b91c1c;
   --ok: #047857;
+  --soft: #eef6f3;
 }
 
 html,
 body {
   min-height: 100%;
-  background:
-    radial-gradient(ellipse at top left, rgba(15, 92, 76, 0.08), transparent 50%),
-    radial-gradient(ellipse at bottom right, rgba(196, 92, 38, 0.08), transparent 45%),
-    var(--bg);
+  background: var(--bg);
   color: var(--ink);
 }
 
 body {
-  font-family: var(--font-body), "Noto Sans", system-ui, sans-serif;
+  font-family: var(--font-body), "Inter", system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
 h1,
 h2,
 h3,
 .display {
-  font-family: var(--font-display), "Fraunces", Georgia, serif;
+  font-family: var(--font-body), "Inter", system-ui, sans-serif;
+  letter-spacing: -0.02em;
 }
 
 .btn {
-  @apply inline-flex items-center justify-center rounded-xl px-5 py-3 text-base font-semibold transition focus:outline-none focus-visible:ring-4 focus-visible:ring-emerald-700/30 disabled:opacity-50;
+  @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-base font-semibold transition focus:outline-none focus-visible:ring-4 focus-visible:ring-emerald-700/30 disabled:cursor-not-allowed disabled:opacity-50;
   min-height: 3.25rem;
 }
 
 .btn-primary {
-  @apply btn text-white;
+  @apply btn text-white shadow-sm hover:brightness-110;
   background: var(--brand);
 }
 
 .btn-accent {
-  @apply btn text-white;
+  @apply btn text-white shadow-sm hover:brightness-110;
   background: var(--brand-2);
 }
 
 .btn-ghost {
-  @apply btn border bg-white/70;
+  @apply btn border bg-white hover:bg-stone-50;
   border-color: var(--line);
 }
 
 .panel {
-  @apply rounded-2xl border p-5 shadow-sm;
+  @apply rounded-2xl border p-6;
   background: var(--card);
   border-color: var(--line);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 4px 16px rgba(16, 24, 40, 0.05);
 }
 
 .input {
-  @apply w-full rounded-xl border bg-white px-4 py-3 text-base;
-  border-color: var(--line);
+  @apply w-full rounded-xl border bg-white px-4 py-3 text-base outline-none transition focus:border-emerald-700 focus:ring-4 focus:ring-emerald-700/15;
+  border-color: #d1d5db;
   min-height: 3rem;
 }
+
+.chip {
+  @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-semibold ring-1 ring-inset;
+}
+
+.nav-item {
+  @apply flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-[15px] font-medium transition hover:bg-stone-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-emerald-700/30;
+  min-height: 2.75rem;
+  color: var(--muted);
+}
+.nav-item[aria-current="page"] {
+  background: var(--soft);
+  color: var(--brand);
+  font-weight: 700;
+}
+
+.print-only {
+  display: none;
+}
+
+@media print {
+  body {
+    background: #fff !important;
+  }
+  body * {
+    visibility: hidden;
+  }
+  .print-memo,
+  .print-memo * {
+    visibility: visible;
+  }
+  .print-memo {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    background: #fff !important;
+    padding: 24px !important;
+  }
+  .print-only {
+    display: block;
+  }
+  .no-print {
+    display: none !important;
+  }
+}
+
+/* Display settings (footer toggles) */
+html.ah-large { font-size: 118.75%; }
+html.ah-contrast {
+  --ink: #000000;
+  --muted: #1c1917;
+  --brand: #064034;
+  --brand-2: #7a3412;
+  --line: #44403c;
+  --card: #ffffff;
+  --bg: #ffffff;
+}
+html.ah-contrast body { background: #ffffff; }
+html.ah-contrast .panel, html.ah-contrast .btn-ghost, html.ah-contrast .input { border-color: #1c1917; border-width: 2px; }

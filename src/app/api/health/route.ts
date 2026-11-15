@@ -9,6 +9,7 @@ export async function GET() {
     await query("SELECT 1");
     return NextResponse.json({ ok: true, service: "apnahaath", db: process.env.DATABASE_URL ? "neon-postgres" : "pglite-local", time: new Date().toISOString() });
   } catch (e) {
-    return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : "health failed" }, { status: 500 });
+    console.error("[health] database check failed:", e instanceof Error ? e.message : e);
+    return NextResponse.json({ ok: false, service: "apnahaath", error: "Database unavailable" }, { status: 503 });
   }
 }

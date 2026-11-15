@@ -66,8 +66,14 @@ function stripFences(text: string): string {
 export type GeneratedCard = z.infer<typeof CardSchema>;
 
 const FORBIDDEN = [
-  /stop taking/i,
-  /start taking/i,
+  /\b(stop|start|quit|resume|restart|pause) (taking|using|giving)\b/i,
+  /\bdiscontinu(e|ed|ing)\b/i,
+  /\b(hold|withhold|pause|suspend) (this|that|the|her|his|your|all)? ?(medicine|medication|tablet|pill|dose|drug)s?\b/i,
+  /\b(do not|don't|dont|never) (take|give) (it|this|that|the|her|his|your|any)\b/i,
+  /\bskip (your|her|his|the|this|a|next|today's|tonight's) (dose|tablet|pill|medicine)\b/i,
+  /\b(reduce|halve|cut down|taper|double|triple)\b[^.]{0,25}\b(dose|dosage|tablets?|pills?|mg)\b/i,
+  /\bswitch (to|from) [a-z]/i,
+  /\b(instead of|in place of) (your|her|his|the) (medicine|tablet|pill|dose)\b/i,
   /\b(increas|decreas|reduc|rais|lower|doubl|halv|chang|adjust|cut)(e|ed|es|ing)? (the |her |his |your |a )?(dose|dosage)/i,
   /\b(dose|dosage) (to|up|down|increase|decrease)\b/i,
   /replace with/i,
@@ -79,8 +85,16 @@ const FORBIDDEN = [
   /\btake (one|two|three|four|an extra|extra|another) (more )?(tablet|tab|pill|dose)s?\b/i,
 ];
 
+/** Standard safety advice ("don't double the dose", "do not stop any medicine without asking the doctor") is allowed. */
+const SAFE_ADVICE = [
+  /\b(do not|don't|dont|never)\s+(double|change|adjust|alter|stop|skip|increase|reduce|halve)\b[^.!?\n]*?(dose|dosage|medicine|medication|tablet|pill)s?\b[^.!?\n]*?\b(without|unless|before|until)\b[^.!?\n]*?\b(doctor|pharmacist|clinician)\b/gi,
+  /\b(do not|don't|dont|never)\s+(double|take a double|take an extra|make up)\b[^.!?\n]{0,30}\b(dose|missed dose)\b/gi,
+  /\b(do not|don't|dont|never) (change|adjust|alter) (any|a|the|her|his|your) (dose|dosage|medicine|medication)s?\b/gi,
+];
+
 export function rejectsMutation(text: string): boolean {
-  return FORBIDDEN.some((r) => r.test(text));
+  const scrubbed = SAFE_ADVICE.reduce((t, r) => t.replace(r, " "), text);
+  return FORBIDDEN.some((r) => r.test(scrubbed));
 }
 
 export function validateWarnOnlyCard(
@@ -142,10 +156,10 @@ export async function generateDecisionCard(input: {
         severity: "info" as const,
         title: "Care note (offline)",
         elder_line_hi:
-          "This is a demo note. None of your medicines were changed. Ask your doctor if you have questions.",
+          "This note was made without AI. None of your medicines were changed. Ask your doctor if you have questions.",
         caretaker_line_hi:
           "Follow Kamla ji's own record. Only she can mark a dose as taken.",
-        family_line_en: `Offline demo card — ${why}. No prescription changes.`,
+        family_line_en: `Safety note (made without AI) — ${why}. No prescription changes.`,
         tell_doctor: "Review the week's ApnaHaath event log.",
         disclaimer: MEDICAL_DISCLAIMER,
         emergency_line: EMERGENCY_LINE,
@@ -249,13 +263,17 @@ export async function generateDoctorBrief(hh: string, elderName: string): Promis
         {
           parts: [
             {
-              text: `Summarize this elderly care event log for a physician in under 120 words, plain text with short lines (no markdown). Do not change medicines or doses. End with: consult clinician. Log:\n${base}`,
+              text: `Summarize this elderly care event log for a physician in under 120 words, plain text with short lines (no markdown). Do not change medicines or doses, and do not add a closing sign-off line. Log:\n${base}`,
             },
           ],
         },
       ],
     });
-    const clean = (text || "").replace(/\*\*|__|^#+\s*/gm, "").replace(/^\s*[*-]\s+/gm, "- ").trim();
+    const clean = (text || "")
+      .replace(/\*\*|__|^#+\s*/gm, "")
+      .replace(/^\s*[*-]\s+/gm, "- ")
+      .replace(/(^|\n)\s*[-–]?\s*(please\s+)?consult (a |your |the )?(clinician|doctor|physician)\.?\s*$/i, "")
+      .trim();
     if (!clean || rejectsMutation(clean)) return base;
     return `${clean}\n\n${EMERGENCY_LINE}\n${MEDICAL_DISCLAIMER}`;
   } catch {
