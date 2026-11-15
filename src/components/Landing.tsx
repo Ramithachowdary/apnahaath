@@ -247,7 +247,10 @@ export default function Landing({ invite = "", toggles }: { invite?: string; tog
           <a href="#top" className="flex items-center gap-2 text-lg font-bold text-[var(--brand)]">
             <HandHeart size={24} aria-hidden="true" /> ApnaHaath
           </a>
-          <nav aria-label="Page sections" className="hidden items-center gap-6 text-[15px] font-medium md:flex">
+          <nav
+            aria-label="Page sections"
+            className="hidden items-center gap-6 whitespace-nowrap text-[15px] font-medium lg:flex"
+          >
             {NAV.map((n) => (
               <a key={n.href} href={n.href} className="text-[var(--muted)] hover:text-[var(--ink)]">
                 {tr(n.key)}
@@ -257,7 +260,7 @@ export default function Landing({ invite = "", toggles }: { invite?: string; tog
           <div className="flex items-center gap-2">
             <LanguageSelect className="hidden sm:flex" />
             <span className="hidden sm:block">
-              <a className="btn-ghost" href={signinHref}>
+              <a className="btn-ghost whitespace-nowrap" href={signinHref}>
                 {tr("landing.signIn")}
               </a>
             </span>
@@ -266,7 +269,7 @@ export default function Landing({ invite = "", toggles }: { invite?: string; tog
             </a>
             <button
               type="button"
-              className="btn-ghost px-3 md:hidden"
+              className="btn-ghost px-3 lg:hidden"
               aria-expanded={menuOpen}
               aria-controls="mobile-menu"
               aria-label={menuOpen ? "Close menu" : "Open menu"}
@@ -277,7 +280,7 @@ export default function Landing({ invite = "", toggles }: { invite?: string; tog
           </div>
         </div>
         {menuOpen && (
-          <nav id="mobile-menu" aria-label="Menu" className="border-t border-stone-200 bg-white md:hidden">
+          <nav id="mobile-menu" aria-label="Menu" className="border-t border-stone-200 bg-white lg:hidden">
             <ul className="mx-auto grid max-w-6xl px-5 py-2">
               {NAV.map((n) => (
                 <li key={n.href}>
