@@ -99,6 +99,18 @@ async function todaySlotId(agent: Agent) {
   return st.json.doseSlots[0].id as string;
 }
 
+
+describe("12-hour clock display", () => {
+  it("formats HH:MM and IST ISO times with AM/PM", async () => {
+    const { formatTime12 } = await import("../src/lib/time");
+    expect(formatTime12("08:00")).toBe("8:00 AM");
+    expect(formatTime12("00:00")).toBe("12:00 AM");
+    expect(formatTime12("12:00")).toBe("12:00 PM");
+    expect(formatTime12("13:30")).toBe("1:30 PM");
+    expect(formatTime12("2026-11-15T16:00:00+05:30")).toBe("4:00 PM");
+  });
+});
+
 describe("accounts, care circles, invites", () => {
   it("login works with the right password and rejects a wrong one", async () => {
     const l = await r.login();
@@ -150,6 +162,24 @@ describe("role rules", () => {
     const locked = await kamla.call(c.POST, { doseSlotId: id, pin: "1111" });
     expect(locked.status).toBe(401);
     expect(String(locked.json.error)).toMatch(/Locked/);
+  });
+
+
+  it("confirming a dose twice is rejected and writes only one event", async () => {
+    const elder = new Agent();
+    await signUp(elder, { name: "Meera", email: "meera-qa@example.com", password: "password123" });
+    expect((await elder.call((await r.households()).POST, { elder_name: "Meera", elder_age: 70, city: "Pune", language: "English", role: "elder", pin: "1111" })).status).toBe(200);
+    const pr = await r.proposals();
+    const prop = await elder.call(pr.POST, { pin: "1111", kind: "add", payload: { name: "Telma 40", dose: "40 mg", schedule_time: "21:00" } });
+    expect(prop.status).toBe(200);
+    const id = (await elder.get((await r.state()).GET)).json.doseSlots[0].id as string;
+    const c = await r.confirm();
+    expect((await elder.call(c.POST, { doseSlotId: id, pin: "1111" })).status).toBe(200);
+    const again = await elder.call(c.POST, { doseSlotId: id, pin: "1111" });
+    expect(again.status).toBe(409);
+    expect(String(again.json.error)).toMatch(/Already taken/);
+    const ev = (await elder.get((await r.state()).GET)).json.events.filter((e: { type: string }) => e.type === "elder_confirmed");
+    expect(ev).toHaveLength(1);
   });
 
   it("family can add and edit an appointment; caretaker cannot", async () => {
@@ -405,7 +435,7 @@ describe("one-tap email links (signed, expiring, single use)", () => {
     expect(after.json.doseSlots.find((d: { id: string }) => d.id === slot).status).toBe("elder_confirmed");
     const again = await post();
     expect(again.status).toBe(409);
-    expect(await again.text()).toContain("already used");
+    expect(await again.text()).toMatch(/already (used|marked as taken)/);
   });
 });
 

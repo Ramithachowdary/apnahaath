@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { EMERGENCY_LINE } from "./constants";
 import { rejectsMutation } from "./gemini";
-import { formatIstIso } from "./time";
+import { formatIstIso, formatTime12 } from "./time";
 import type { DecisionCard } from "./types";
 
 /**
@@ -28,7 +28,7 @@ export function validateCareMessages(raw: unknown): { ok: true; messages: CareMe
 }
 
 export function templateMessages(card: DecisionCard, elderName: string): CareMessages {
-  const time = formatIstIso().slice(11, 16);
+  const time = formatTime12(formatIstIso());
   return {
     elder: /\bji\b/.test(card.elder_line_hi) ? card.elder_line_hi : `${elderName.split(" ")[0]} ji, ${card.elder_line_hi}`,
     caretaker: card.caretaker_line_hi,

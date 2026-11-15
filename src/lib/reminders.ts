@@ -13,7 +13,7 @@ import {
 import { createDoseToken } from "./doselink";
 import { deliverOutboxRow } from "./email";
 import { SITE_URL } from "./site";
-import { formatIstIso, minutesSince } from "./time";
+import { formatIstIso, formatTime12, minutesSince } from "./time";
 import type { ReminderOutbox, Role } from "./types";
 
 export async function familyRecipients(hh: string): Promise<string[]> {
@@ -36,10 +36,6 @@ export function doseLinkFooter(hh: string, slotId: string, r: Recipient): string
   return r.role === "elder"
     ? `Took it? Tap once to record it in your name (link works once, for 6 hours, only for you):\n${url}`
     : `Saw the dose taken? Tap to record yourself as a witness (does not mark it taken; works once, for 6 hours):\n${url}`;
-}
-
-function hhmm(iso: string) {
-  return iso.slice(11, 16);
 }
 
 export async function runMorningCheck(hh: string): Promise<{ queued: number; results: Array<{ id: string; status: string }> }> {
@@ -82,7 +78,7 @@ export async function runMorningCheck(hh: string): Promise<{ queued: number; res
     const age = minutesSince(slot.scheduled_at);
     if (age >= -60 && age < 0) {
       await queue("upcoming", `upcoming:${slot.id}`, "ApnaHaath: a dose is coming up", [
-        `${elder} has ${slot.medicine_name} due at ${hhmm(slot.scheduled_at)} IST.`,
+        `${elder} has ${slot.medicine_name} due at ${formatTime12(slot.scheduled_at)} IST.`,
         "Only she can mark it as taken. A caretaker can only witness.",
       ], slot.id);
     }
@@ -93,7 +89,7 @@ export async function runMorningCheck(hh: string): Promise<{ queued: number; res
         medicine_id: slot.medicine_id, dose_slot_id: slot.id, payload: { grace_minutes: MISS_GRACE_MINUTES },
       });
       await queue("missed", `missed:${slot.id}`, "ApnaHaath: a dose was not confirmed", [
-        `${slot.medicine_name} (due ${hhmm(slot.scheduled_at)} IST) has no answer from ${elder} after ${MISS_GRACE_MINUTES} minutes.`,
+        `${slot.medicine_name} (due ${formatTime12(slot.scheduled_at)} IST) has no answer from ${elder} after ${MISS_GRACE_MINUTES} minutes.`,
         "Skipped doses are never reported as missed. Please check in kindly.",
       ]);
     }
@@ -103,7 +99,7 @@ export async function runMorningCheck(hh: string): Promise<{ queued: number; res
     const age = minutesSince(appt.scheduled_at);
     if (age >= -24 * 60 && age <= 60) {
       await queue("appointment", `appt:${appt.id}:${appt.scheduled_at}`, "ApnaHaath: appointment reminder", [
-        `${appt.doctor} at ${appt.place} — ${appt.scheduled_at.slice(0, 10)} ${hhmm(appt.scheduled_at)} IST`,
+        `${appt.doctor} at ${appt.place} — ${appt.scheduled_at.slice(0, 10)} ${formatTime12(appt.scheduled_at)} IST`,
         appt.notes ?? "",
       ]);
     }

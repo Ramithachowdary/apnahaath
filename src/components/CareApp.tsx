@@ -6,6 +6,7 @@ import {
   Pill, ShieldCheck, Stethoscope, Users, XCircle,
 } from "lucide-react";
 import Landing from "./Landing";
+import { formatTime12 } from "@/lib/time";
 
 type Role = "elder" | "caretaker" | "family";
 type Me = { authenticated: boolean; user?: { id: string; name: string; email: string }; households?: Array<{ id: string; elder_name: string; city: string; role: Role }>; activeHouseholdId?: string | null };
@@ -79,11 +80,37 @@ async function api(path: string, init?: RequestInit) {
   return data;
 }
 
-function time12(iso: string) {
-  const m = /T(\d{2}):(\d{2})/.exec(iso);
-  if (!m) return iso;
-  const h = Number(m[1]);
-  return `${((h + 11) % 12) + 1}:${m[2]} ${h >= 12 ? "PM" : "AM"}`;
+function time12(value: string) {
+  return formatTime12(value);
+}
+
+/** Time or datetime field with a visible 12-hour AM/PM preview (native pickers are often 24-hour). */
+function TimeField({
+  type = "time",
+  value,
+  onChange,
+  label,
+  className,
+}: {
+  type?: "time" | "datetime-local";
+  value: string;
+  onChange: (v: string) => void;
+  label: string;
+  className?: string;
+}) {
+  const preview = value ? formatTime12(value) : "";
+  return (
+    <label className="grid gap-1">
+      <span className="text-sm font-semibold">{label}{preview ? ` · ${preview}` : " (AM/PM)"}</span>
+      <input
+        className={className ?? "input"}
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        aria-label={`${label}${preview ? `, ${preview}` : ""}`}
+      />
+    </label>
+  );
 }
 function dayLabel(iso: string) {
   const d = new Date(`${iso.slice(0, 10)}T12:00:00+05:30`);
@@ -230,28 +257,35 @@ function AppFooter() {
   );
 }
 
-/** Larger text and high contrast, remembered on this device. */
+/** Large text and high contrast, remembered on this device. Labels show the action: Large/Small, High/Normal contrast. */
 function DisplayToggles() {
   const [large, setLarge] = useState(false);
   const [contrast, setContrast] = useState(false);
+  const [ready, setReady] = useState(false);
   useEffect(() => {
     try {
-      setLarge(localStorage.getItem("ah-large") === "1");
-      setContrast(localStorage.getItem("ah-contrast") === "1");
+      const l = localStorage.getItem("ah-large") === "1";
+      const c = localStorage.getItem("ah-contrast") === "1";
+      setLarge(l);
+      setContrast(c);
+      document.documentElement.classList.toggle("ah-large", l);
+      document.documentElement.classList.toggle("ah-contrast", c);
     } catch { /* storage blocked */ }
+    setReady(true);
   }, []);
   useEffect(() => {
+    if (!ready) return;
     document.documentElement.classList.toggle("ah-large", large);
     document.documentElement.classList.toggle("ah-contrast", contrast);
     try {
       localStorage.setItem("ah-large", large ? "1" : "0");
       localStorage.setItem("ah-contrast", contrast ? "1" : "0");
     } catch { /* storage blocked */ }
-  }, [large, contrast]);
+  }, [large, contrast, ready]);
   return (
     <div className="no-print mb-3 flex flex-wrap gap-2" role="group" aria-label="Display settings">
-      <button type="button" className="btn-ghost" aria-pressed={large} onClick={() => setLarge((v) => !v)}>Larger text</button>
-      <button type="button" className="btn-ghost" aria-pressed={contrast} onClick={() => setContrast((v) => !v)}>High contrast</button>
+      <button type="button" className="btn-ghost" aria-pressed={large} aria-label={large ? "Small text" : "Large text"} onClick={() => setLarge((v) => !v)}>{large ? "Small" : "Large"}</button>
+      <button type="button" className="btn-ghost" aria-pressed={contrast} aria-label={contrast ? "Normal contrast" : "High contrast"} onClick={() => setContrast((v) => !v)}>{contrast ? "Normal contrast" : "High contrast"}</button>
     </div>
   );
 }
@@ -543,8 +577,8 @@ function describeProposal(p: State["proposals"][number], meds: State["medicines"
   let pl: Record<string, string> = {};
   try { pl = JSON.parse(p.payload_json); } catch { /* ignore */ }
   const name = meds.find((m) => m.id === p.medicine_id)?.name ?? pl.name ?? "a medicine";
-  if (p.kind === "add") return `Add ${name}${pl.dose ? ` (${pl.dose})` : ""} at ${pl.schedule_time}${pl.instructions ? ` — ${pl.instructions}` : ""}`;
-  if (p.kind === "edit_schedule") return `Move ${name} to ${pl.schedule_time}`;
+  if (p.kind === "add") return `Add ${name}${pl.dose ? ` (${pl.dose})` : ""} at ${pl.schedule_time ? formatTime12(pl.schedule_time) : ""}${pl.instructions ? ` — ${pl.instructions}` : ""}`;
+  if (p.kind === "edit_schedule") return `Move ${name} to ${pl.schedule_time ? formatTime12(pl.schedule_time) : ""}`;
   if (p.kind === "stop") return `Stop ${name}${pl.reason ? ` — ${pl.reason}` : ""}`;
   return p.kind;
 }
@@ -569,11 +603,11 @@ function Medicines({ state, busy, withPin }: { state: State; busy: boolean; with
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <p className="text-lg font-semibold">{m.name} <span className="font-normal text-[var(--muted)]">{m.dose}</span></p>
-                  <p className="text-[var(--muted)]">{m.schedule_time} · {m.instructions}</p>
+                  <p className="text-[var(--muted)]">{formatTime12(m.schedule_time)} · {m.instructions}</p>
                 </div>
                 {role === "family" && (
                   <div className="flex flex-wrap items-center gap-2">
-                    <input type="time" className="input w-32" value={moveTime[m.id] ?? m.schedule_time} onChange={(e) => setMoveTime({ ...moveTime, [m.id]: e.target.value })} aria-label={`New time for ${m.name}`} />
+                    <TimeField className="input w-40" value={moveTime[m.id] ?? m.schedule_time} onChange={(v) => setMoveTime({ ...moveTime, [m.id]: v })} label={`New time for ${m.name}`} />
                     <button className="btn-ghost" disabled={busy} onClick={() => withPin((pin) => api("/api/proposals", { method: "POST", body: JSON.stringify({ pin, kind: "edit_schedule", medicineId: m.id, payload: { schedule_time: moveTime[m.id] ?? m.schedule_time } }) }), "Suggestion sent. It changes only when the elder says yes.")}>Suggest time</button>
                     <button className="btn-ghost" disabled={busy} onClick={() => withPin((pin) => api("/api/proposals", { method: "POST", body: JSON.stringify({ pin, kind: "stop", medicineId: m.id, payload: { reason: "Discuss with the doctor" } }) }), "Suggestion sent.")}>Suggest stop</button>
                   </div>
@@ -607,7 +641,7 @@ function Medicines({ state, busy, withPin }: { state: State; busy: boolean; with
             <div className="mt-3 grid gap-2 md:grid-cols-2">
               <input className="input" placeholder="Name (e.g. Telma 40)" value={name} onChange={(e) => setName(e.target.value)} aria-label="Medicine name" />
               <input className="input" placeholder="Dose (e.g. 40 mg)" value={dose} onChange={(e) => setDose(e.target.value)} aria-label="Dose" />
-              <input className="input" type="time" value={time} onChange={(e) => setTime(e.target.value)} aria-label="Time" />
+              <TimeField value={time} onChange={setTime} label="Time" />
               <input className="input" placeholder="Instructions (e.g. after breakfast)" value={instr} onChange={(e) => setInstr(e.target.value)} aria-label="Instructions" />
             </div>
             <button className="btn-primary mt-3" disabled={busy || !name} onClick={() => withPin((pin) => api("/api/proposals", { method: "POST", body: JSON.stringify({ pin, kind: "add", payload: { name, dose, schedule_time: time, instructions: instr } }) }), "Suggestion sent to the elder.")}>Send suggestion</button>
@@ -735,7 +769,7 @@ function Appointments({ state, busy, withPin }: { state: State; busy: boolean; w
           <div className="mt-3 grid gap-2">
             <input className="input" placeholder="Doctor" value={doctor} onChange={(e) => setDoctor(e.target.value)} aria-label="Doctor" />
             <input className="input" placeholder="Place" value={place} onChange={(e) => setPlace(e.target.value)} aria-label="Place" />
-            <input className="input" type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} aria-label="Date and time (IST)" />
+            <TimeField type="datetime-local" value={when} onChange={setWhen} label="Date and time (IST)" />
           </div>
           <div className="mt-3 flex gap-2">
             <button className="btn-primary" disabled={busy || !doctor || !place || !when} onClick={() => withPin((pin) => api("/api/appointments", { method: "POST", body: JSON.stringify({ pin, doctor, place, scheduled_at: when, ...(editId ? { id: editId } : {}) }) }).then(() => { setEditId(null); setDoctor(""); setPlace(""); setWhen(""); }), "Appointment saved.")}>{busy ? "Saving…" : editId ? "Save changes" : "Add appointment"}</button>

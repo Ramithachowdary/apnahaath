@@ -66,6 +66,7 @@ export async function redeemDoseToken(token: string, nowS = Date.now() / 1000): 
   const slot = await getDoseSlot(p.hid, p.sid);
   if (!slot) return { ok: false, status: 404, reason: "This dose was not found." };
   if (p.role === "elder" && slot.status === "skipped") return { ok: false, status: 409, reason: "This dose was already marked as skipped." };
+  if (p.role === "elder" && slot.status === "elder_confirmed") return { ok: false, status: 409, reason: "This dose was already marked as taken." };
   const jti = createHash("sha256").update(token).digest("hex");
   const claimed = await query(`INSERT INTO auth_meta (key,value) VALUES (?,?) ON CONFLICT(key) DO NOTHING`, [`doselink:${jti}`, String(Math.floor(nowS))]);
   if (claimed.rowCount === 0) return { ok: false, status: 409, reason: "This link was already used." };

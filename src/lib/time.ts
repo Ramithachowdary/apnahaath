@@ -38,3 +38,13 @@ export function addDaysIst(isoDate: string, days: number): string {
   const d = new Date(base + days * 86400000);
   return formatIstIso(d).slice(0, 10);
 }
+
+/** Clock time for people: "8:00 AM". Accepts HH:MM or an ISO string with a T-time. */
+export function formatTime12(value: string): string {
+  const m = /T(\d{2}):(\d{2})/.exec(value) || /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(value);
+  if (!m) return value;
+  const h = Number(m[1]);
+  const min = m[2];
+  if (Number.isNaN(h) || h < 0 || h > 23) return value;
+  return `${((h + 11) % 12) + 1}:${min} ${h >= 12 ? "PM" : "AM"}`;
+}

@@ -54,6 +54,12 @@ h3,
   @apply btn border bg-white hover:bg-stone-50;
   border-color: var(--line);
 }
+.btn-ghost[aria-pressed="true"] {
+  background: var(--soft);
+  border-color: var(--brand);
+  color: var(--brand);
+  font-weight: 700;
+}
 
 .panel {
   @apply rounded-2xl border p-6;
@@ -114,7 +120,7 @@ h3,
 }
 
 /* Display settings (footer toggles) */
-html.ah-large { font-size: 118.75%; }
+html.ah-large { font-size: 125%; }
 html.ah-contrast {
   --ink: #000000;
   --muted: #1c1917;

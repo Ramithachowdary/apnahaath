@@ -1,7 +1,7 @@
 # ApnaHaath — the elder's own medicine log
 
 [![CI](https://img.shields.io/badge/CI-GitHub_Actions-2088FF?logo=githubactions&logoColor=white)](.github/workflows/ci.yml)
-[![tests](https://img.shields.io/badge/tests-35%2F35_passing-brightgreen)](#tests)
+[![tests](https://img.shields.io/badge/tests-38%2F38_passing-brightgreen)](#tests)
 [![repo size](https://img.shields.io/badge/repo_size-~1_MB-blue)](#)
 [![license](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
 [![Gemini](https://img.shields.io/badge/Google-Gemini-4285F4?logo=google&logoColor=white)](src/lib/gemini.ts)
@@ -44,7 +44,7 @@ There is no fake demo data — everything is a real account.
 | **Code quality** | TypeScript strict, Next.js 15 route handlers, one `requireMember()` auth gate, zod on every body, small pure modules (`rules.ts`, `weekly.ts`, `cards.ts`, `doselink.ts`), ESLint clean, CI runs tests + build | `src/lib/*`, `.github/workflows/ci.yml`, `eslint.config.mjs` |
 | **Security** | email OTP verification + Google sign-in, bcrypt passwords/PINs + lockouts, HMAC sessions, role from DB, household isolation, signed single-use email links, per-IP rate limits, CSP/HSTS headers, generic errors, AI dose-change filter | [SECURITY.md](SECURITY.md), tests *isolation and security*, *one-tap email links*, *rate limits* |
 | **Efficiency** | Serverless Neon HTTP driver (no connection pool to exhaust), idempotent reminder outbox, AI only on a button press with 10–15 s timeouts + template fallbacks, today's slots created lazily, server-rendered first paint (CLS 0) | `src/lib/db.ts`, `src/lib/reminders.ts`, `src/lib/gemini.ts`, [Lighthouse](#efficiency) |
-| **Testing** | 35 automated tests (Vitest, offline on in-process Postgres): roles, isolation, lockouts, invites, reminders, AI guards, rate limits, email links, accessibility | [Tests](#tests) |
+| **Testing** | 38 automated tests (Vitest, offline on in-process Postgres): roles, isolation, lockouts, invites, reminders, AI guards, rate limits, email links, accessibility | [Tests](#tests) |
 | **Accessibility** | `lang`, labelled fields, ≥44 px targets (52 px buttons), 4.5:1 text contrast checked in a test, status in words not colour, PIN modal with `aria-modal`, live status region, read-aloud, larger-text + high-contrast toggles | `tests/a11y.test.tsx`, [Accessibility](#accessibility) |
 | **Google services** | **Gemini** (`gemini-3.5-flash` → `gemini-flash-lite-latest` fallback) for safety notes and the doctor brief; **Google Sign-In**; Gmail SMTP for codes and reminders; optional **Cloud Run** path (`Dockerfile`, `cloudrun.yaml`) | `src/lib/gemini.ts`, `src/lib/email.ts`, [Deploy](#deploy) |
 
@@ -104,7 +104,7 @@ flowchart LR
 - AI calls only on a user's button press, with timeouts (Gemini 15 s, Adaption 10 s) and template fallbacks — the app never waits on AI to render.
 - Reminder outbox uses idempotency keys, so repeated cron/button runs never double-send.
 - The home page is server-rendered with the session check, so there is no loading flash.
-- Lighthouse (production, Nov 15 2026, before the latest metadata fix): desktop Performance 93 / Accessibility 100 / Best Practices 100 / SEO 91; mobile 99 / 100 / 100 / 91; CLS 0. Reports in the submission's `audits/` folder.
+- Lighthouse (production, 15 Nov 2026, Asia/Calcutta, [apnahaath-care.vercel.app](https://apnahaath-care.vercel.app)): desktop Performance 99 / Accessibility 100 / Best Practices 100 / SEO 100; mobile 99 / 100 / 100 / 100; CLS 0. Reports are in `audits/`. The longer `*.vercel.app` project URL is noindexed by Vercel (SEO 66) — use the `apnahaath-care` alias as the public URL.
 
 ## Security
 
@@ -137,7 +137,7 @@ Tables are created on first request. Nothing is auto-wiped.
 
 ```bash
 npm ci
-npm test            # 35 tests, offline (PGlite in-process Postgres)
+npm test            # 38 tests, offline (PGlite in-process Postgres)
 npm run dev         # without DATABASE_URL uses PGlite
 ```
 
