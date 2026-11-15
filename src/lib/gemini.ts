@@ -44,7 +44,7 @@ export const CARD_RESPONSE_SCHEMA = {
   ],
 } as const;
 
-/** Gemini models, tried in order — override with GEMINI_MODEL if Google renames/retires them. */
+/** Gemini models, tried in order; override with GEMINI_MODEL if Google renames/retires them. */
 function geminiModels(): string[] {
   const env = process.env.GEMINI_MODEL;
   return env ? [env] : ["gemini-3.5-flash", "gemini-flash-lite-latest"];

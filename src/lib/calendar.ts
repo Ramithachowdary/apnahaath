@@ -1,4 +1,4 @@
-/** Google Calendar "Add event" template URL — no API key, opens in the user's Google Calendar. */
+/** Google Calendar "Add event" template URL: no API key, opens in the user's Google Calendar. */
 
 /** An appointment to open in Google Calendar. */
 export interface CalendarEvent {
