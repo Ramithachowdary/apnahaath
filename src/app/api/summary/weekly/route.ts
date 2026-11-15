@@ -5,7 +5,7 @@ import { generateWeeklySummary } from "@/lib/weekly";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** Weekly care summary for any member of the active care circle (read-only; no PIN needed). */
+/** Weekly care summary for any member of the active care circle (read-only). */
 export async function POST() {
   const a = await requireMember();
   if ("error" in a) return a.error;

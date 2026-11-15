@@ -83,10 +83,8 @@ describe("accessibility", () => {
     expect(src).toContain('{contrast ? "Normal contrast" : "High contrast"}');
   });
 
-  it("the PIN dialog is a labelled modal and messages use a live status region", () => {
+  it("messages use a live status region", () => {
     const src = readFileSync(path.join(root, "src/components/CareApp.tsx"), "utf8");
-    expect(src).toMatch(/role="dialog"[\s\S]{0,80}aria-modal="true"[\s\S]{0,80}aria-labelledby="pin-title"/);
-    expect(src).toMatch(/htmlFor="pin-input"/);
     expect(src).toMatch(/role="status"/);
   });
 

@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireMember, requirePin } from "@/lib/auth";
+import { requireMember } from "@/lib/auth";
 import {
   ensureTodaySlots,
   getMedicine,
@@ -14,7 +14,7 @@ import {
   updateProposalStatus,
 } from "@/lib/db";
 import { checkThyronormShelcalGap } from "@/lib/rules";
-import { hhmm, parseBody, pinOptional, shortText } from "@/lib/validate";
+import { hhmm, parseBody, shortText } from "@/lib/validate";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -36,7 +36,6 @@ export async function POST(req: Request) {
   const p = await parseBody(
     req,
     z.object({
-      pin: pinOptional,
       kind: z.enum(["add", "edit_schedule", "stop"]),
       medicineId: z.string().max(120).optional(),
       payload: Payload,
@@ -51,8 +50,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Medicine name and time are required" }, { status: 400 });
   if (kind === "edit_schedule" && !payload.schedule_time)
     return NextResponse.json({ error: "New time is required" }, { status: 400 });
-  const re = await requirePin(a.ctx, p.data.pin);
-  if ("error" in re) return re.error;
   if (payload.schedule_time) {
     const gap = await checkThyronormShelcalGap(hh, {
       medicineName: med?.name ?? payload.name ?? "",
@@ -86,13 +83,8 @@ export async function POST(req: Request) {
 export async function PATCH(req: Request) {
   const a = await requireMember(["elder"]);
   if ("error" in a) return a.error;
-  const p = await parseBody(
-    req,
-    z.object({ pin: pinOptional, proposalId: shortText(120), decision: z.enum(["accept", "reject"]) }),
-  );
+  const p = await parseBody(req, z.object({ proposalId: shortText(120), decision: z.enum(["accept", "reject"]) }));
   if ("error" in p) return p.error;
-  const re = await requirePin(a.ctx, p.data.pin);
-  if ("error" in re) return re.error;
   const hh = a.ctx.household.id;
   const prop = await getProposal(hh, p.data.proposalId);
   if (!prop || prop.status !== "pending")

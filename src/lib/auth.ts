@@ -3,16 +3,7 @@ import { createHash, createHmac, randomBytes, timingSafeEqual } from "crypto";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { LOCKOUT_MAX_ATTEMPTS, LOCKOUT_MINUTES, SESSION_COOKIE } from "./constants";
-import {
-  getAuthMeta,
-  getHousehold,
-  getMembership,
-  getMembershipById,
-  getUser,
-  getUserByEmail,
-  setAuthMeta,
-  setMembershipLock,
-} from "./db";
+import { getAuthMeta, getHousehold, getMembership, getUser, getUserByEmail, setAuthMeta } from "./db";
 import type { Household, Membership, Role, User } from "./types";
 
 /** Cookie payload: who is signed in and which household is active. Role is never trusted from the cookie. */
@@ -123,98 +114,6 @@ export async function verifyLogin(
   return { ok: true, user };
 }
 
-// ---------- per-membership confirmation PIN (re-auth before authoring) ----------
-export async function verifyPin(
-  membershipId: string,
-  pin: string,
-): Promise<{ ok: true } | { ok: false; reason: string }> {
-  const m = await getMembershipById(membershipId);
-  if (!m) return { ok: false, reason: "Unknown membership" };
-  if (m.lockout_until && Date.parse(m.lockout_until) > Date.now()) {
-    return {
-      ok: false,
-      reason: `Locked after ${LOCKOUT_MAX_ATTEMPTS} wrong PINs. Try again in ${LOCKOUT_MINUTES} minutes.`,
-    };
-  }
-  if (!bcrypt.compareSync(pin, m.pin_hash)) {
-    const n = Number(m.failed_attempts) + 1;
-    if (n >= LOCKOUT_MAX_ATTEMPTS) {
-      await setMembershipLock(m.id, 0, new Date(Date.now() + LOCKOUT_MINUTES * 60_000).toISOString());
-    } else {
-      await setMembershipLock(m.id, n, null);
-    }
-    return { ok: false, reason: "Wrong PIN" };
-  }
-  await setMembershipLock(m.id, 0, null);
-  return { ok: true };
-}
-
-// ---------- 15-minute "PIN unlocked" window ----------
-/** Name of the httpOnly cookie that remembers a correct PIN for {@link PIN_WINDOW_S} seconds. */
-export const PIN_COOKIE = "apnahaath_pin_ok";
-/** How long a correct PIN keeps the member unlocked (15 minutes). */
-export const PIN_WINDOW_S = 15 * 60;
-
-interface PinGrant {
-  t: "pin";
-  uid: string;
-  mid: string;
-  exp: number;
-}
-
-function pinSign(payloadB64: string): string {
-  // Separate key derivation so a session cookie can never be replayed as a PIN grant (and vice versa).
-  return createHmac("sha256", `pin-window:${sessionSecret()}`).update(payloadB64).digest("base64url");
-}
-
-/** Sign a PIN grant bound to one user + one membership (so switching circles asks again). */
-function encodePinGrant(uid: string, mid: string, nowS = Math.floor(Date.now() / 1000)): string {
-  const g: PinGrant = { t: "pin", uid, mid, exp: nowS + PIN_WINDOW_S };
-  const p = Buffer.from(JSON.stringify(g), "utf8").toString("base64url");
-  return `${p}.${pinSign(p)}`;
-}
-
-/** True only for an untampered, unexpired grant for exactly this user + membership. */
-function isPinGrantValid(raw: string | undefined, uid: string, mid: string, nowS = Date.now() / 1000): boolean {
-  if (!raw) return false;
-  const parts = raw.split(".");
-  if (parts.length !== 2 || !parts[0] || !parts[1]) return false;
-  try {
-    const a = Buffer.from(parts[1]);
-    const b = Buffer.from(pinSign(parts[0]));
-    if (a.length !== b.length || !timingSafeEqual(a, b)) return false;
-    const g = JSON.parse(Buffer.from(parts[0], "base64url").toString("utf8")) as PinGrant;
-    return g?.t === "pin" && g.uid === uid && g.mid === mid && typeof g.exp === "number" && g.exp > nowS;
-  } catch {
-    return false;
-  }
-}
-
-function pinCookieOptions(maxAgeSeconds = PIN_WINDOW_S) {
-  return { ...sessionCookieOptions(maxAgeSeconds), sameSite: "strict" as const };
-}
-
-/**
- * Re-auth gate for every authoring action (confirm, witness, skip, appointments, medicine proposals).
- * Passes when the member has a valid 15-minute PIN grant cookie, or supplies the correct PIN (which
- * then sets a fresh grant). Otherwise replies 401 `{ needPin: true }` so the client shows the PIN dialog.
- * Lockout after repeated wrong PINs is unchanged, and a locked membership ignores any grant.
- */
-export async function requirePin(ctx: Ctx, pin?: string): Promise<{ ok: true } | { error: NextResponse }> {
-  const locked = Boolean(ctx.membership.lockout_until && Date.parse(ctx.membership.lockout_until) > Date.now());
-  const jar = await cookies();
-  if (!locked && isPinGrantValid(jar.get(PIN_COOKIE)?.value, ctx.user.id, ctx.membership.id)) return { ok: true };
-  if (!pin) {
-    return { error: NextResponse.json({ error: "Enter your PIN to continue", needPin: true }, { status: 401 }) };
-  }
-  const r = await verifyPin(ctx.membership.id, pin);
-  if (!r.ok) return { error: NextResponse.json({ error: r.reason, needPin: true }, { status: 401 }) };
-  if (typeof (jar as { set?: unknown }).set === "function") {
-    jar.set(PIN_COOKIE, encodePinGrant(ctx.user.id, ctx.membership.id), pinCookieOptions());
-  }
-  return { ok: true };
-}
-
 // ---------- cookies ----------
 export function sessionCookieOptions(maxAgeSeconds = SESSION_MAX_AGE_S) {
   return {
@@ -234,7 +133,6 @@ export function withSession(res: NextResponse, uid: string, hid: string | null):
 export function buildLogoutResponse(): NextResponse {
   const res = NextResponse.json({ ok: true });
   res.cookies.set(SESSION_COOKIE, "", { ...sessionCookieOptions(0), maxAge: 0 });
-  res.cookies.set(PIN_COOKIE, "", { ...pinCookieOptions(0), maxAge: 0 });
   return res;
 }
 
@@ -254,4 +152,4 @@ export function hashInviteCode(code: string) {
 }
 
 /** Exported for tests */
-export const __test = { encode, decode, encodePinGrant, isPinGrantValid };
+export const __test = { encode, decode };

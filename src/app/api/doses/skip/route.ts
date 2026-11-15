@@ -1,9 +1,9 @@
 import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireMember, requirePin } from "@/lib/auth";
+import { requireMember } from "@/lib/auth";
 import { getDoseSlot, insertEvent, updateDoseSlotStatus } from "@/lib/db";
-import { parseBody, pinOptional, shortText } from "@/lib/validate";
+import { parseBody, shortText } from "@/lib/validate";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,10 +12,8 @@ export const dynamic = "force-dynamic";
 export async function POST(req: Request) {
   const a = await requireMember(["elder"]);
   if ("error" in a) return a.error;
-  const p = await parseBody(req, z.object({ doseSlotId: shortText(120), pin: pinOptional, reason: shortText(100) }));
+  const p = await parseBody(req, z.object({ doseSlotId: shortText(120), reason: shortText(100) }));
   if ("error" in p) return p.error;
-  const re = await requirePin(a.ctx, p.data.pin);
-  if ("error" in re) return re.error;
   const hh = a.ctx.household.id;
   const slot = await getDoseSlot(hh, p.data.doseSlotId);
   if (!slot) return NextResponse.json({ error: "Dose not found" }, { status: 404 });

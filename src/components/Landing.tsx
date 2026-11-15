@@ -31,7 +31,7 @@ const STEPS = [
   {
     icon: UserPlus,
     title: "Create a care circle",
-    text: "Sign up, add your elder's name and choose your role. Set a personal PIN that signs changes (asked once every 15 minutes).",
+    text: "Sign up, add your elder's name and choose your role. Every change is saved under your own account.",
   },
   {
     icon: Users,
@@ -99,7 +99,7 @@ const AI = [
 const FAQ = [
   {
     q: "Who can mark a dose as taken?",
-    a: "Only the elder, with her own PIN. A caretaker's tap is saved as a witness and never counts as taken.",
+    a: "Only the elder, from her own account. A caretaker's tap is saved as a witness and never counts as taken.",
   },
   {
     q: "Can the AI change a prescription?",
@@ -111,7 +111,7 @@ const FAQ = [
   },
   {
     q: "Is my family's data private?",
-    a: "Each care circle is isolated. Passwords and PINs are stored only as secure hashes, and every request is checked against your role in that circle.",
+    a: "Each care circle is isolated. Passwords are stored only as secure hashes, and every request is checked against your role in that circle.",
   },
   {
     q: "Is ApnaHaath a medical device?",
@@ -422,8 +422,8 @@ export default function Landing({
             </h2>
             <ul className="mt-4 grid gap-3 text-[var(--muted)] sm:grid-cols-2">
               <li className="flex gap-2">
-                <LockKeyhole size={18} className="mt-1 shrink-0 text-[var(--brand)]" /> A personal PIN signs every
-                change; repeated wrong PINs lock the account for a while.
+                <LockKeyhole size={18} className="mt-1 shrink-0 text-[var(--brand)]" /> Every change is recorded under
+                the signed-in person and their role in the circle.
               </li>
               <li className="flex gap-2">
                 <ClipboardList size={18} className="mt-1 shrink-0 text-[var(--brand)]" /> An append-only log: who did

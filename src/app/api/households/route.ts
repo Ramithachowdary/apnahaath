@@ -1,10 +1,9 @@
-import bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireUser, withSession } from "@/lib/auth";
 import { addMembershipStmt, batch, createHouseholdStmt } from "@/lib/db";
-import { parseBody, pin, shortText } from "@/lib/validate";
+import { parseBody, shortText } from "@/lib/validate";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,7 +16,6 @@ const Body = z.object({
     .enum(["English", "Hindi", "Tamil", "Telugu", "Bengali", "Marathi", "Kannada", "Other"])
     .default("English"),
   role: z.enum(["family", "caretaker", "elder"]).default("family"),
-  pin,
 });
 
 /** Create a care circle for an elder; the creator becomes owner with the chosen role. */
@@ -43,7 +41,7 @@ export async function POST(req: Request) {
       user_id: u.user.id,
       household_id: id,
       role: p.data.role,
-      pin_hash: bcrypt.hashSync(p.data.pin, 10),
+      pin_hash: "", // PIN removed; column kept unused
     }),
   ]);
   return withSession(NextResponse.json({ ok: true, householdId: id }), u.user.id, id);

@@ -1,10 +1,10 @@
 import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireMember, requirePin } from "@/lib/auth";
+import { requireMember } from "@/lib/auth";
 import { insertDecisionCard, insertEvent } from "@/lib/db";
 import { generateDecisionCard } from "@/lib/gemini";
-import { parseBody, pinOptional, shortText } from "@/lib/validate";
+import { parseBody, shortText } from "@/lib/validate";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,7 +16,6 @@ export async function POST(req: Request) {
   const p = await parseBody(
     req,
     z.object({
-      pin: pinOptional,
       medicineName: shortText(80),
       dose: z.string().trim().max(60).optional(),
       reason: z.string().trim().max(200).optional(),
@@ -24,8 +23,6 @@ export async function POST(req: Request) {
     }),
   );
   if ("error" in p) return p.error;
-  const re = await requirePin(a.ctx, p.data.pin);
-  if ("error" in re) return re.error;
   const hh = a.ctx.household.id;
   const eventId = `evt-${randomUUID()}`;
   await insertEvent(hh, {

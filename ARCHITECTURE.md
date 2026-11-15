@@ -1,12 +1,12 @@
 # Architecture
 
-ApnaHaath is a Next.js 15 App Router app. The browser talks only to route handlers. Those handlers go through `requireMember()` and, for any change, a personal PIN, then read and write a Postgres database (Neon in production, in-process PGlite in tests).
+ApnaHaath is a Next.js 15 App Router app. The browser talks only to route handlers. Those handlers go through `requireMember()` (session + role in that circle), then read and write a Postgres database (Neon in production, in-process PGlite in tests).
 
 ```mermaid
 flowchart LR
   Browser["Browser (Landing / CareApp)"]
   API["Next.js route handlers"]
-  Auth["requireMember + PIN"]
+  Auth["requireMember (session + role)"]
   DB[("Postgres: Neon or PGlite")]
   Gemini["Gemini API"]
   Gmail["Gmail SMTP"]

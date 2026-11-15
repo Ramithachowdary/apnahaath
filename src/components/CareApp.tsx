@@ -166,11 +166,7 @@ type Tab = (typeof TABS)[number];
 async function api(path: string, init?: RequestInit) {
   const res = await fetch(path, { ...init, headers: { "Content-Type": "application/json", ...(init?.headers || {}) } });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    const err = new Error(data.error || res.statusText) as Error & { needPin?: boolean };
-    err.needPin = Boolean(data.needPin);
-    throw err;
-  }
+  if (!res.ok) throw new Error(data.error || res.statusText);
   return data;
 }
 
@@ -227,7 +223,6 @@ export default function CareApp({
   const [msg, setMsg] = useState<{ text: string; ok?: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
   const [invite, setInvite] = useState("");
-  const [pinReq, setPinReq] = useState<{ fn: (pin: string) => Promise<unknown>; okText?: string } | null>(null);
 
   useEffect(() => {
     if (!msg) return;
@@ -277,23 +272,9 @@ export default function CareApp({
     }
   }
 
-  /**
-   * Authoring actions try first without a PIN: the server accepts them while the member's
-   * 15-minute PIN window is open, and replies `needPin` otherwise — only then the PIN dialog opens.
-   */
-  async function withPin(fn: (pin: string) => Promise<unknown>, okText?: string) {
-    setBusy(true);
-    setMsg(null);
-    try {
-      await fn("");
-      await refresh();
-      if (okText) setMsg({ text: okText, ok: true });
-    } catch (e) {
-      if (e instanceof Error && (e as Error & { needPin?: boolean }).needPin) setPinReq({ fn, okText });
-      else setMsg({ text: e instanceof Error ? e.message : "Something went wrong" });
-    } finally {
-      setBusy(false);
-    }
+  /** Authoring actions are attributed to the signed-in account and its role in this circle. */
+  function doAction(fn: () => Promise<unknown>, okText?: string) {
+    void act(fn, okText);
   }
 
   const logout = () => act(() => api("/api/auth/logout", { method: "POST" }));
@@ -321,16 +302,6 @@ export default function CareApp({
             </button>
           </p>
         </div>
-      )}
-      {pinReq && (
-        <PinDialog
-          onCancel={() => setPinReq(null)}
-          onSubmit={(pin) => {
-            const req = pinReq;
-            setPinReq(null);
-            void act(() => req.fn(pin), req.okText);
-          }}
-        />
       )}
     </>
   );
@@ -390,7 +361,7 @@ export default function CareApp({
   }
   return (
     <>
-      <Dashboard state={state} busy={busy} act={act} withPin={withPin} setMsg={setMsg} onLogout={logout} />
+      <Dashboard state={state} busy={busy} act={act} doAction={doAction} setMsg={setMsg} onLogout={logout} />
       {overlay}
     </>
   );
@@ -471,66 +442,6 @@ function DisplayToggles() {
   );
 }
 
-function PinDialog({ onSubmit, onCancel }: { onSubmit: (pin: string) => void; onCancel: () => void }) {
-  const [pin, setPin] = useState("");
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onCancel();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onCancel]);
-  return (
-    <div
-      className="no-print fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
-      role="presentation"
-      onClick={onCancel}
-    >
-      <form
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="pin-title"
-        className="panel w-full max-w-sm"
-        onClick={(e) => e.stopPropagation()}
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (/^\d{4,8}$/.test(pin)) onSubmit(pin);
-        }}
-      >
-        <h2 id="pin-title" className="text-xl font-semibold">
-          Confirm with your PIN
-        </h2>
-        <p className="mt-1 text-sm text-[var(--muted)]">
-          Confirm it’s you — your PIN signs this change. We won’t ask again for 15 minutes.
-        </p>
-        <label className="mt-3 block text-sm font-semibold" htmlFor="pin-input">
-          PIN (4–8 digits)
-        </label>
-        <input
-          id="pin-input"
-          className="input mt-1 text-center text-2xl tracking-[0.5em]"
-          type="password"
-          inputMode="numeric"
-          autoComplete="one-time-code"
-          pattern="\d{4,8}"
-          maxLength={8}
-          autoFocus
-          value={pin}
-          onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
-        />
-        <div className="mt-4 flex justify-end gap-2">
-          <button type="button" className="btn-ghost" onClick={onCancel}>
-            Cancel
-          </button>
-          <button type="submit" className="btn-primary" disabled={!/^\d{4,8}$/.test(pin)}>
-            Confirm
-          </button>
-        </div>
-      </form>
-    </div>
-  );
-}
-
 function TopBar({ me, onLogout }: { me: Me | null; state: State | null; onLogout: () => void }) {
   return (
     <header className="mb-8 flex flex-wrap items-center justify-between gap-3">
@@ -554,9 +465,7 @@ function Onboarding({ me, busy, act, invite }: { me: Me; busy: boolean; act: Act
   const [city, setCity] = useState("");
   const [language, setLanguage] = useState("English");
   const [role, setRole] = useState<Role>("family");
-  const [pin, setPin] = useState("");
   const [code, setCode] = useState(invite);
-  const [joinPin, setJoinPin] = useState("");
   return (
     <>
       <h1 className="display mb-2 text-3xl">Welcome, {me.user?.name}</h1>
@@ -600,7 +509,6 @@ function Onboarding({ me, busy, act, invite }: { me: Me; busy: boolean; act: Act
                       city,
                       language,
                       role,
-                      pin,
                     }),
                   }),
                 "Care circle created. Next: add medicines, then invite the elder and caretaker from Care circle.",
@@ -651,17 +559,6 @@ function Onboarding({ me, busy, act, invite }: { me: Me; busy: boolean; act: Act
                 <option value="elder">I am the elder</option>
               </select>
             </label>
-            <input
-              className="input"
-              type="password"
-              inputMode="numeric"
-              pattern="\d{4,8}"
-              placeholder="Choose a 4–8 digit PIN (confirms changes; asked once per 15 min)"
-              value={pin}
-              onChange={(e) => setPin(e.target.value)}
-              aria-label="Your PIN"
-              required
-            />
             <button className="btn-primary" disabled={busy} type="submit">
               Create care circle
             </button>
@@ -675,7 +572,7 @@ function Onboarding({ me, busy, act, invite }: { me: Me; busy: boolean; act: Act
             onSubmit={(e) => {
               e.preventDefault();
               act(
-                () => api("/api/invites/join", { method: "POST", body: JSON.stringify({ code, pin: joinPin }) }),
+                () => api("/api/invites/join", { method: "POST", body: JSON.stringify({ code }) }),
                 "You joined the care circle.",
               );
             }}
@@ -686,17 +583,6 @@ function Onboarding({ me, busy, act, invite }: { me: Me; busy: boolean; act: Act
               value={code}
               onChange={(e) => setCode(e.target.value)}
               aria-label="Invite code"
-              required
-            />
-            <input
-              className="input"
-              type="password"
-              inputMode="numeric"
-              pattern="\d{4,8}"
-              placeholder="Choose your 4–8 digit PIN"
-              value={joinPin}
-              onChange={(e) => setJoinPin(e.target.value)}
-              aria-label="Your PIN"
               required
             />
             <button className="btn-primary" disabled={busy} type="submit">
@@ -713,14 +599,14 @@ function Dashboard({
   state,
   busy,
   act,
-  withPin,
+  doAction,
   setMsg,
   onLogout,
 }: {
   state: State;
   busy: boolean;
   act: ActFn;
-  withPin: (fn: (pin: string) => Promise<unknown>, ok?: string) => void;
+  doAction: (fn: () => Promise<unknown>, ok?: string) => void;
   setMsg: (m: { text: string; ok?: boolean } | null) => void;
   onLogout: () => void;
 }) {
@@ -787,15 +673,15 @@ function Dashboard({
             <h1 className="text-3xl font-bold">{tab}</h1>
             <p className="mt-1 text-[var(--muted)]">{TAB_SUB[tab]}</p>
           </div>
-          {tab === "Today" && <Today state={state} busy={busy} withPin={withPin} setMsg={setMsg} go={go} />}
-          {tab === "Medicines" && <Medicines state={state} busy={busy} withPin={withPin} />}
+          {tab === "Today" && <Today state={state} busy={busy} doAction={doAction} setMsg={setMsg} go={go} />}
+          {tab === "Medicines" && <Medicines state={state} busy={busy} doAction={doAction} />}
           {tab === "History" && (
             <>
               <WeeklySummary state={state} busy={busy} act={act} />
               <History state={state} />
             </>
           )}
-          {tab === "Appointments" && <Appointments state={state} busy={busy} withPin={withPin} />}
+          {tab === "Appointments" && <Appointments state={state} busy={busy} doAction={doAction} />}
           {tab === "Safety & AI" && <Safety state={state} busy={busy} act={act} />}
           {tab === "Care circle" && <Circle state={state} busy={busy} act={act} />}
           <AppFooter city={state.household.city} />
@@ -852,13 +738,13 @@ function Empty({ children }: { children: React.ReactNode }) {
 function Today({
   state,
   busy,
-  withPin,
+  doAction,
   setMsg,
   go,
 }: {
   state: State;
   busy: boolean;
-  withPin: (fn: (pin: string) => Promise<unknown>, ok?: string) => void;
+  doAction: (fn: () => Promise<unknown>, ok?: string) => void;
   setMsg: (m: { text: string; ok?: boolean } | null) => void;
   go: (t: Tab) => void;
 }) {
@@ -953,11 +839,11 @@ function Today({
                       className="btn-primary min-h-[72px] w-full px-10 text-2xl sm:w-auto"
                       disabled={busy}
                       onClick={() =>
-                        withPin(
-                          (pin) =>
+                        doAction(
+                          () =>
                             api("/api/doses/confirm", {
                               method: "POST",
-                              body: JSON.stringify({ doseSlotId: slot.id, pin }),
+                              body: JSON.stringify({ doseSlotId: slot.id }),
                             }),
                           "Saved: you took it.",
                         )
@@ -991,11 +877,11 @@ function Today({
                         disabled={busy}
                         onClick={() => {
                           setSkipFor(null);
-                          withPin(
-                            (pin) =>
+                          doAction(
+                            () =>
                               api("/api/doses/skip", {
                                 method: "POST",
-                                body: JSON.stringify({ doseSlotId: slot.id, pin, reason: r }),
+                                body: JSON.stringify({ doseSlotId: slot.id, reason: r }),
                               }),
                             "Saved. A skip is your decision — it is not counted as missed.",
                           );
@@ -1014,11 +900,11 @@ function Today({
                     className="btn-accent"
                     disabled={busy}
                     onClick={() =>
-                      withPin(
-                        (pin) =>
+                      doAction(
+                        () =>
                           api("/api/doses/witness", {
                             method: "POST",
-                            body: JSON.stringify({ doseSlotId: slot.id, pin }),
+                            body: JSON.stringify({ doseSlotId: slot.id }),
                           }),
                         "Saved as witnessed. Only the elder can mark it as taken.",
                       )
@@ -1084,11 +970,11 @@ function Today({
                 className="btn-primary"
                 disabled={busy || !med}
                 onClick={() =>
-                  withPin(
-                    (pin) =>
+                  doAction(
+                    () =>
                       api("/api/doses/self-add", {
                         method: "POST",
-                        body: JSON.stringify({ pin, medicineName: med, dose, reason: why, generateCard: true }),
+                        body: JSON.stringify({ medicineName: med, dose, reason: why, generateCard: true }),
                       }),
                     "Saved. A safety note was added under Safety.",
                   )
@@ -1134,11 +1020,11 @@ function describeProposal(p: State["proposals"][number], meds: State["medicines"
 function Medicines({
   state,
   busy,
-  withPin,
+  doAction,
 }: {
   state: State;
   busy: boolean;
-  withPin: (fn: (pin: string) => Promise<unknown>, ok?: string) => void;
+  doAction: (fn: () => Promise<unknown>, ok?: string) => void;
 }) {
   const role = state.me.role;
   const [name, setName] = useState("");
@@ -1156,7 +1042,7 @@ function Medicines({
           {active.length === 0 && (
             <Empty>
               No medicines yet. Use the form here to add {state.household.elder_name}&apos;s first medicine — for
-              example the morning BP tablet, with its time. The elder accepts each suggestion with her PIN.
+              example the morning BP tablet, with its time. The elder accepts or declines each suggestion.
             </Empty>
           )}
           {active.map((m) => (
@@ -1187,12 +1073,11 @@ function Medicines({
                       className="btn-ghost"
                       disabled={busy}
                       onClick={() =>
-                        withPin(
-                          (pin) =>
+                        doAction(
+                          () =>
                             api("/api/proposals", {
                               method: "POST",
                               body: JSON.stringify({
-                                pin,
                                 kind: "edit_schedule",
                                 medicineId: m.id,
                                 payload: { schedule_time: moveTime[m.id] ?? m.schedule_time },
@@ -1208,12 +1093,11 @@ function Medicines({
                       className="btn-ghost"
                       disabled={busy}
                       onClick={() =>
-                        withPin(
-                          (pin) =>
+                        doAction(
+                          () =>
                             api("/api/proposals", {
                               method: "POST",
                               body: JSON.stringify({
-                                pin,
                                 kind: "stop",
                                 medicineId: m.id,
                                 payload: { reason: "Discuss with the doctor" },
@@ -1246,11 +1130,11 @@ function Medicines({
                     className="btn-primary"
                     disabled={busy}
                     onClick={() =>
-                      withPin(
-                        (pin) =>
+                      doAction(
+                        () =>
                           api("/api/proposals", {
                             method: "PATCH",
-                            body: JSON.stringify({ pin, proposalId: p.id, decision: "accept" }),
+                            body: JSON.stringify({ proposalId: p.id, decision: "accept" }),
                           }),
                         "Done. Your list is updated.",
                       )
@@ -1262,11 +1146,11 @@ function Medicines({
                     className="btn-ghost"
                     disabled={busy}
                     onClick={() =>
-                      withPin(
-                        (pin) =>
+                      doAction(
+                        () =>
                           api("/api/proposals", {
                             method: "PATCH",
-                            body: JSON.stringify({ pin, proposalId: p.id, decision: "reject" }),
+                            body: JSON.stringify({ proposalId: p.id, decision: "reject" }),
                           }),
                         "Okay. Nothing was changed.",
                       )
@@ -1313,12 +1197,11 @@ function Medicines({
               className="btn-primary mt-3"
               disabled={busy || !name}
               onClick={() =>
-                withPin(
-                  (pin) =>
+                doAction(
+                  () =>
                     api("/api/proposals", {
                       method: "POST",
                       body: JSON.stringify({
-                        pin,
                         kind: "add",
                         payload: { name, dose, schedule_time: time, instructions: instr },
                       }),
@@ -1505,11 +1388,11 @@ function AddToGoogleCalendar({
 function Appointments({
   state,
   busy,
-  withPin,
+  doAction,
 }: {
   state: State;
   busy: boolean;
-  withPin: (fn: (pin: string) => Promise<unknown>, ok?: string) => void;
+  doAction: (fn: () => Promise<unknown>, ok?: string) => void;
 }) {
   const [editId, setEditId] = useState<string | null>(null);
   const [doctor, setDoctor] = useState("");
@@ -1577,12 +1460,11 @@ function Appointments({
               className="btn-primary"
               disabled={busy || !doctor || !place || !when}
               onClick={() =>
-                withPin(
-                  (pin) =>
+                doAction(
+                  () =>
                     api("/api/appointments", {
                       method: "POST",
                       body: JSON.stringify({
-                        pin,
                         doctor,
                         place,
                         scheduled_at: when,

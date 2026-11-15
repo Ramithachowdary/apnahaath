@@ -1,4 +1,3 @@
-import bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -12,7 +11,7 @@ import {
   householdHasRole,
   insertEventStmt,
 } from "@/lib/db";
-import { parseBody, pin } from "@/lib/validate";
+import { parseBody } from "@/lib/validate";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,7 +20,7 @@ export const dynamic = "force-dynamic";
 export async function POST(req: Request) {
   const u = await requireUser();
   if ("error" in u) return u.error;
-  const p = await parseBody(req, z.object({ code: z.string().trim().min(6).max(20), pin }));
+  const p = await parseBody(req, z.object({ code: z.string().trim().min(6).max(20) }));
   if ("error" in p) return p.error;
   const inv = await getInviteByHash(hashInviteCode(p.data.code));
   if (!inv || inv.used_by || Date.parse(inv.expires_at) < Date.now()) {
@@ -42,7 +41,7 @@ export async function POST(req: Request) {
       user_id: u.user.id,
       household_id: inv.household_id,
       role: inv.role,
-      pin_hash: bcrypt.hashSync(p.data.pin, 10),
+      pin_hash: "", // PIN removed; column kept unused
     }),
     insertEventStmt(inv.household_id, {
       id: `evt-${randomUUID()}`,
