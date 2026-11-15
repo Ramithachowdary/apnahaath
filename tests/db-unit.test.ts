@@ -10,6 +10,7 @@ import {
   createHouseholdStmt,
   createUser,
   createUserStmt,
+  countWitnessedToday,
   getAdherenceStats,
   getAppointment,
   getAuthMeta,
@@ -58,7 +59,7 @@ import {
   listDoseSlots,
   updateDoseSlotStatus,
 } from "../src/lib/db";
-import { formatIstIso, todayIstDateString } from "../src/lib/time";
+import { formatIstIso, istDateTimeOnToday, todayIstDateString } from "../src/lib/time";
 import type { DecisionCard, Medicine, ReminderOutbox } from "../src/lib/types";
 
 const prefix = `dbt-${randomUUID().slice(0, 8)}`;
@@ -222,6 +223,9 @@ describe("medicines, slots, appointments, events", () => {
     await ensureTodaySlots(hid);
     const today = (await listDoseSlots(hid)).find((s) => s.medicine_id === medId);
     expect(today?.status).toBe("pending");
+    // The single INSERT ... SELECT builds the same id and timestamp as the TypeScript helpers.
+    expect(today?.id).toBe(slotIdFor(medId));
+    expect(today?.scheduled_at).toBe(istDateTimeOnToday(medicine.schedule_time));
     await ensureTodaySlots(hid); // idempotent
     expect((await listDoseSlots(hid)).filter((s) => s.medicine_id === medId)).toHaveLength(1);
     await updateMedicineSchedule(hid, medId, "21:00");
@@ -332,6 +336,7 @@ describe("decision cards, outbox, proposals and adherence", () => {
     expect(stats.elderConfirmed).toBeGreaterThanOrEqual(0);
     expect(stats.witnessed).toBeGreaterThanOrEqual(0);
     expect("elderConfirmationRate" in stats).toBe(true);
+    expect(stats.witnessed).toBe(await countWitnessedToday(hid));
   });
 
   it("query(SELECT 1) works on the in-process database", async () => {
