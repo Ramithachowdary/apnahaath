@@ -146,15 +146,6 @@ export function TopBar({ me, onLogout }: { me: Me | null; state: State | null; o
   );
 }
 
-export function Stat({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="rounded-xl bg-stone-50 p-3 text-center">
-      <div className="text-3xl font-semibold">{value}</div>
-      <div className="text-xs uppercase tracking-wide text-[var(--muted)]">{label}</div>
-    </div>
-  );
-}
-
 export function Empty({ children }: { children: React.ReactNode }) {
   return <p className="rounded-xl border border-dashed p-6 text-center text-[var(--muted)]">{children}</p>;
 }
