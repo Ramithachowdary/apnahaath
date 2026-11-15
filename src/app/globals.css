@@ -1,0 +1,68 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #f3efe6;
+  --ink: #1c1917;
+  --muted: #57534e;
+  --brand: #0f5c4c;
+  --brand-2: #c45c26;
+  --card: #fffdf8;
+  --line: #d6d3d1;
+  --danger: #b91c1c;
+  --ok: #047857;
+}
+
+html,
+body {
+  min-height: 100%;
+  background:
+    radial-gradient(ellipse at top left, rgba(15, 92, 76, 0.08), transparent 50%),
+    radial-gradient(ellipse at bottom right, rgba(196, 92, 38, 0.08), transparent 45%),
+    var(--bg);
+  color: var(--ink);
+}
+
+body {
+  font-family: var(--font-body), "Noto Sans", system-ui, sans-serif;
+}
+
+h1,
+h2,
+h3,
+.display {
+  font-family: var(--font-display), "Fraunces", Georgia, serif;
+}
+
+.btn {
+  @apply inline-flex items-center justify-center rounded-xl px-5 py-3 text-base font-semibold transition focus:outline-none focus-visible:ring-4 focus-visible:ring-emerald-700/30 disabled:opacity-50;
+  min-height: 3.25rem;
+}
+
+.btn-primary {
+  @apply btn text-white;
+  background: var(--brand);
+}
+
+.btn-accent {
+  @apply btn text-white;
+  background: var(--brand-2);
+}
+
+.btn-ghost {
+  @apply btn border bg-white/70;
+  border-color: var(--line);
+}
+
+.panel {
+  @apply rounded-2xl border p-5 shadow-sm;
+  background: var(--card);
+  border-color: var(--line);
+}
+
+.input {
+  @apply w-full rounded-xl border bg-white px-4 py-3 text-base;
+  border-color: var(--line);
+  min-height: 3rem;
+}

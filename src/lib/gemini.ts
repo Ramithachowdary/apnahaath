@@ -1,0 +1,264 @@
+import { z } from "zod";
+import { EMERGENCY_LINE, MEDICAL_DISCLAIMER } from "./constants";
+import { listMedicines, listEvents } from "./db";
+import { findEcosprinActive } from "./rules";
+import { formatIstIso } from "./time";
+import { randomUUID } from "crypto";
+import type { DecisionCard } from "./types";
+
+const CardSchema = z.object({
+  severity: z.enum(["info", "review_required", "urgent_review"]),
+  title: z.string().min(3).max(120),
+  elder_line_hi: z.string().min(10).max(400),
+  caretaker_line_hi: z.string().min(10).max(400),
+  family_line_en: z.string().min(10).max(500),
+  tell_doctor: z.string().min(5).max(300),
+  // Reject prescription mutations
+  changes_prescription: z.literal(false),
+  dose_change: z.null().optional(),
+});
+
+/** Gemini models, tried in order — override with GEMINI_MODEL if Google renames/retires them. */
+function geminiModels(): string[] {
+  const env = process.env.GEMINI_MODEL;
+  return env ? [env] : ["gemini-3.5-flash", "gemini-flash-lite-latest"];
+}
+
+async function callGemini(key: string, body: unknown): Promise<string> {
+  let lastErr: unknown;
+  for (const model of geminiModels()) {
+    try {
+      return await callGeminiModel(key, model, body);
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw lastErr instanceof Error ? lastErr : new Error("Gemini failed");
+}
+
+async function callGeminiModel(key: string, model: string, body: unknown): Promise<string> {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 15_000);
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+        body: JSON.stringify(body),
+        signal: ctrl.signal,
+      },
+    );
+    if (!res.ok) throw new Error(`Gemini HTTP ${res.status}`);
+    const data = (await res.json()) as {
+      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+    };
+    return data.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+function stripFences(text: string): string {
+  return text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+}
+
+export type GeneratedCard = z.infer<typeof CardSchema>;
+
+const FORBIDDEN = [
+  /stop taking/i,
+  /start taking/i,
+  /\b(increas|decreas|reduc|rais|lower|doubl|halv|chang|adjust|cut)(e|ed|es|ing)? (the |her |his |your |a )?(dose|dosage)/i,
+  /\b(dose|dosage) (to|up|down|increase|decrease)\b/i,
+  /replace with/i,
+  /dawai band/i,
+  /dose badal/i,
+  /band kar(o|ein|dein|de)/i,
+  /\b(double|half|skip) (the )?dose/i,
+  /\btake \d+(\.\d+)?\s?(mg|tablet|tab|pill)s?\b/i,
+  /\btake (one|two|three|four|an extra|extra|another) (more )?(tablet|tab|pill|dose)s?\b/i,
+];
+
+export function rejectsMutation(text: string): boolean {
+  return FORBIDDEN.some((r) => r.test(text));
+}
+
+export function validateWarnOnlyCard(
+  raw: unknown,
+): { ok: true; card: GeneratedCard } | { ok: false; error: string } {
+  const parsed = CardSchema.safeParse(raw);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.message };
+  }
+  const c = parsed.data;
+  if (c.dose_change != null) {
+    return { ok: false, error: "Card attempted a dose change" };
+  }
+  if (c.changes_prescription !== false) {
+    return { ok: false, error: "Card attempted prescription change" };
+  }
+  const blob = `${c.elder_line_hi} ${c.caretaker_line_hi} ${c.family_line_en} ${c.tell_doctor}`;
+  if (rejectsMutation(blob)) {
+    return { ok: false, error: "Card text implies dose/prescription mutation" };
+  }
+  return { ok: true, card: c };
+}
+
+export function offlineBrufenCard(hh: string, sourceEventId: string | null): DecisionCard {
+  return {
+    id: `card-${randomUUID()}`,
+    household_id: hh,
+    source_event_id: sourceEventId,
+    severity: "review_required",
+    title: "Brufen + Ecosprin — illustrative safety review",
+    elder_line_hi:
+      "Kamla ji, taking Brufen together with Ecosprin can raise the risk of bleeding. Nothing in your medicines was changed. Please talk to your doctor.",
+    caretaker_line_hi:
+      "Please do not give Brufen until the doctor says it is okay. Kamla ji's own entry stays on record.",
+    family_line_en:
+      "Self-reported Brufen with Ecosprin 75 on record. Potential interaction needs clinician review. No prescription changed.",
+    tell_doctor: "Mention self-added Brufen alongside Ecosprin 75.",
+    disclaimer: MEDICAL_DISCLAIMER,
+    emergency_line: EMERGENCY_LINE,
+    cached: 1,
+    created_at: formatIstIso(),
+  };
+}
+
+export async function generateDecisionCard(input: {
+  hh: string;
+  sourceEventId: string | null;
+  context: string;
+  medicineHint?: string;
+}): Promise<{ card: DecisionCard; source: "gemini" | "offline" }> {
+  const key = process.env.GEMINI_API_KEY;
+  const hint = (input.medicineHint ?? "").toLowerCase();
+  const involvesBrufen = /brufen|ibuprofen/.test(hint) || /brufen/i.test(input.context);
+
+  const genericOffline = (why: string): DecisionCard => ({
+        id: `card-${randomUUID()}`,
+        household_id: input.hh,
+        source_event_id: input.sourceEventId,
+        severity: "info" as const,
+        title: "Care note (offline)",
+        elder_line_hi:
+          "This is a demo note. None of your medicines were changed. Ask your doctor if you have questions.",
+        caretaker_line_hi:
+          "Follow Kamla ji's own record. Only she can mark a dose as taken.",
+        family_line_en: `Offline demo card — ${why}. No prescription changes.`,
+        tell_doctor: "Review the week's ApnaHaath event log.",
+        disclaimer: MEDICAL_DISCLAIMER,
+        emergency_line: EMERGENCY_LINE,
+        cached: 1,
+        created_at: formatIstIso(),
+  });
+
+  if (!key) {
+    if (involvesBrufen && (await findEcosprinActive(input.hh))) {
+      return { card: offlineBrufenCard(input.hh, input.sourceEventId), source: "offline" };
+    }
+    return { card: genericOffline("Gemini key not configured"), source: "offline" };
+  }
+
+  const meds = (await listMedicines(input.hh, true)).map((m) => ({
+    name: m.name,
+    dose: m.dose,
+    time: m.schedule_time,
+  }));
+  const recent = (await listEvents(input.hh, 12)).map((e) => ({
+    type: e.type,
+    actor: e.actor_name,
+    payload: e.payload_json,
+  }));
+
+  const prompt = `You are a warn-only medication safety assistant for a family care log.
+Return ONLY JSON matching this schema:
+{"severity":"info"|"review_required"|"urgent_review","title":string,"elder_line_hi":string,"caretaker_line_hi":string,"family_line_en":string,"tell_doctor":string,"changes_prescription":false,"dose_change":null}
+
+Rules:
+- Never start/stop/change doses or medicines.
+- Never give emergency triage; mention calling 108 only as general advice if needed in tell_doctor carefully.
+- Use plain, simple English for all lines (elder_line_hi = short reassuring line for the elder, caretaker_line_hi = one instruction for the caretaker, family_line_en = briefing for family). Field names are legacy; write English.
+- Context: ${input.context}
+- Active medicines: ${JSON.stringify(meds)}
+- Recent events: ${JSON.stringify(recent)}`;
+
+  try {
+    const text = await callGemini(key, {
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.2, responseMimeType: "application/json" },
+    });
+    const json = JSON.parse(stripFences(text)) as unknown;
+    const validated = validateWarnOnlyCard(json);
+    if (!validated.ok) throw new Error(validated.error);
+
+    const c = validated.card;
+    return {
+      source: "gemini",
+      card: {
+        id: `card-${randomUUID()}`,
+        household_id: input.hh,
+        source_event_id: input.sourceEventId,
+        severity: c.severity,
+        title: c.title,
+        elder_line_hi: c.elder_line_hi,
+        caretaker_line_hi: c.caretaker_line_hi,
+        family_line_en: c.family_line_en,
+        tell_doctor: c.tell_doctor,
+        disclaimer: MEDICAL_DISCLAIMER,
+        emergency_line: EMERGENCY_LINE,
+        cached: 0,
+        created_at: formatIstIso(),
+      },
+    };
+  } catch (e) {
+    console.warn("[gemini] falling back to offline card:", e instanceof Error ? e.message : e);
+    if (involvesBrufen && (await findEcosprinActive(input.hh))) {
+      return { card: offlineBrufenCard(input.hh, input.sourceEventId), source: "offline" };
+    }
+    return {
+      card: genericOffline("live Gemini output unavailable or rejected by the warn-only check"),
+      source: "offline",
+    };
+  }
+}
+
+export async function generateDoctorBrief(hh: string, elderName: string): Promise<string> {
+  const events = await listEvents(hh, 30);
+  const lines = events.map(
+    (e) =>
+      `- ${e.created_at}: ${e.type} by ${e.actor_name}${e.medicine_id ? ` (${e.medicine_id})` : ""}`,
+  );
+  const base = [
+    `Doctor brief — ${elderName} (ApnaHaath care log)`,
+    MEDICAL_DISCLAIMER,
+    EMERGENCY_LINE,
+    "",
+    "Week events:",
+    ...lines,
+    "",
+    "No prescriptions were changed by software.",
+  ].join("\n");
+
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) return base;
+
+  try {
+    const text = await callGemini(key, {
+      contents: [
+        {
+          parts: [
+            {
+              text: `Summarize this elderly care event log for a physician in under 120 words, plain text with short lines (no markdown). Do not change medicines or doses. End with: consult clinician. Log:\n${base}`,
+            },
+          ],
+        },
+      ],
+    });
+    const clean = (text || "").replace(/\*\*|__|^#+\s*/gm, "").replace(/^\s*[*-]\s+/gm, "- ").trim();
+    if (!clean || rejectsMutation(clean)) return base;
+    return `${clean}\n\n${EMERGENCY_LINE}\n${MEDICAL_DISCLAIMER}`;
+  } catch {
+    return base;
+  }
+}
