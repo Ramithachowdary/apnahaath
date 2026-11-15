@@ -19,6 +19,7 @@ import {
 import Landing from "./Landing";
 import { googleCalendarUrl } from "@/lib/calendar";
 import { formatTime12 } from "@/lib/time";
+import { dayPartLabel, greeting, istHour, mapsSearchUrl } from "./app/format";
 
 type Role = "elder" | "caretaker" | "family";
 type Me = {
@@ -395,10 +396,20 @@ export default function CareApp({
   );
 }
 
-function AppFooter() {
+function AppFooter({ city }: { city?: string | null }) {
   return (
     <footer className="mt-12 border-t border-stone-200 pt-5 text-sm text-[var(--muted)]">
-      <p className="font-semibold text-[var(--danger)]">Emergency: call 108 or go to the nearest hospital.</p>
+      <p className="font-semibold text-[var(--danger)]">
+        Emergency: call <a href="tel:108">108</a> or go to the nearest hospital.
+      </p>
+      <p className="no-print my-2 flex flex-wrap gap-x-4 gap-y-1">
+        <a className="underline" href={mapsSearchUrl("hospital", city)} target="_blank" rel="noopener noreferrer">
+          Nearest hospital on Google Maps
+        </a>
+        <a className="underline" href={mapsSearchUrl("pharmacy", city)} target="_blank" rel="noopener noreferrer">
+          24-hour pharmacy on Google Maps
+        </a>
+      </p>
       <p>
         ApnaHaath is a care log. It is not a doctor and does not start, stop or change medicines. Talk to a qualified
         doctor or pharmacist.
@@ -787,7 +798,7 @@ function Dashboard({
           {tab === "Appointments" && <Appointments state={state} busy={busy} withPin={withPin} />}
           {tab === "Safety & AI" && <Safety state={state} busy={busy} act={act} />}
           {tab === "Care circle" && <Circle state={state} busy={busy} act={act} />}
-          <AppFooter />
+          <AppFooter city={state.household.city} />
           <div className="mt-4 lg:hidden">
             <DisplayToggles />
           </div>
@@ -857,8 +868,41 @@ function Today({
   const [dose, setDose] = useState("");
   const [why, setWhy] = useState("");
   const a = state.adherence;
+  const hello = greeting(istHour());
+  const next = state.doseSlots.find((s) => s.status === "pending");
+  const taken = state.doseSlots.filter((s) => s.status === "elder_confirmed").length;
+  const firstName = state.me.name.split(" ")[0];
   return (
     <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
+      <section
+        className="rounded-3xl bg-[var(--soft)] p-5 lg:col-span-2"
+        aria-label={role === "elder" ? "Your next dose" : "Today at a glance"}
+      >
+        <p className="text-lg font-semibold">
+          {hello.hi} {firstName} · <span className="font-normal text-[var(--muted)]">{hello.en}</span>
+        </p>
+        {next ? (
+          <p className={role === "elder" ? "mt-2 text-2xl font-bold md:text-3xl" : "mt-2 text-xl font-semibold"}>
+            {role === "elder" ? "Next dose · agli dawai: " : `Next for ${state.household.elder_name}: `}
+            {next.medicine_name} at {time12(next.scheduled_at)}
+            <span className="block text-base font-normal text-[var(--muted)]">
+              {dayPartLabel(next.scheduled_at)}
+              {next.instructions ? ` · ${next.instructions}` : ""}
+            </span>
+          </p>
+        ) : (
+          <p className="mt-2 text-xl font-semibold">
+            {state.doseSlots.length > 0
+              ? "All of today's doses are answered. Shabash! 🌼"
+              : "No doses scheduled today."}
+          </p>
+        )}
+        {state.doseSlots.length > 0 && (
+          <p className="mt-1 text-[var(--muted)]">
+            {taken} of {state.doseSlots.length} taken today
+          </p>
+        )}
+      </section>
       <section className="panel">
         <h2 className="text-2xl font-semibold">Today&apos;s medicines</h2>
         <div className="mt-4 space-y-3">
@@ -895,7 +939,8 @@ function Today({
                     {slot.medicine_name}
                   </h3>
                   <p className={`text-[var(--muted)] ${role === "elder" ? "text-lg" : ""}`}>
-                    {time12(slot.scheduled_at)} · {slot.instructions}
+                    {time12(slot.scheduled_at)} · {dayPartLabel(slot.scheduled_at)}
+                    {slot.instructions ? ` · ${slot.instructions}` : ""}
                   </p>
                   <p className="mt-2">
                     <StatusChip status={slot.status} extra={slot.skip_reason} />
@@ -1108,7 +1153,12 @@ function Medicines({
       <section className="panel">
         <h2 className="text-2xl font-semibold">Medicine list</h2>
         <div className="mt-3 space-y-2">
-          {active.length === 0 && <Empty>No medicines yet.</Empty>}
+          {active.length === 0 && (
+            <Empty>
+              No medicines yet. Use the form here to add {state.household.elder_name}&apos;s first medicine — for
+              example the morning BP tablet, with its time. The elder accepts each suggestion with her PIN.
+            </Empty>
+          )}
           {active.map((m) => (
             <div
               key={m.id}
@@ -1121,7 +1171,8 @@ function Medicines({
                     {m.name} <span className="font-normal text-[var(--muted)]">{m.dose}</span>
                   </p>
                   <p className="text-[var(--muted)]">
-                    {formatTime12(m.schedule_time)} · {m.instructions}
+                    {formatTime12(m.schedule_time)} · {dayPartLabel(m.schedule_time)}
+                    {m.instructions ? ` · ${m.instructions}` : ""}
                   </p>
                 </div>
                 {role === "family" && (
@@ -1404,7 +1455,12 @@ function History({ state }: { state: State }) {
       <section className="panel">
         <h2 className="text-2xl font-semibold">Who did what</h2>
         <p className="text-sm text-[var(--muted)]">Every entry is kept. Nothing is edited or deleted.</p>
-        {state.events.length === 0 && <Empty>Nothing yet.</Empty>}
+        {state.events.length === 0 && (
+          <Empty>
+            Nothing logged yet. When the elder taps &ldquo;Yes, I took it&rdquo; or a caretaker witnesses a dose, it
+            appears here with the name and time.
+          </Empty>
+        )}
         <ul className="mt-3 space-y-2">
           {state.events.map((e) => (
             <li key={e.id} className="border-b pb-2">
@@ -1464,7 +1520,12 @@ function Appointments({
     <div className="grid gap-6 lg:grid-cols-2">
       <section className="panel">
         <h2 className="text-2xl font-semibold">Appointments</h2>
-        {state.appointments.length === 0 && <Empty>No appointments yet.</Empty>}
+        {state.appointments.length === 0 && (
+          <Empty>
+            No appointments yet. Add the next check-up with the doctor&apos;s name and clinic — everyone gets an email
+            reminder, and you can add it to Google Calendar.
+          </Empty>
+        )}
         <ul className="mt-3 space-y-2">
           {state.appointments.map((a) => (
             <li key={a.id} className="rounded-xl border bg-white p-3">
@@ -1633,7 +1694,12 @@ function Safety({ state, busy, act }: { state: State; busy: boolean; act: ActFn 
         <p className="text-sm text-[var(--muted)]">
           Gemini can only warn. Any answer that tries to change a dose is thrown away.
         </p>
-        {state.cards.length === 0 && <Empty>No safety notes yet.</Empty>}
+        {state.cards.length === 0 && (
+          <Empty>
+            No safety notes yet. Press “Check the list with Gemini” to review today&apos;s medicines and recent log for
+            anything worth asking the doctor about.
+          </Empty>
+        )}
         <div className="mt-3 space-y-4">
           {state.cards.map((c) => (
             <article key={c.id} className="rounded-xl border border-amber-200 bg-amber-50/60 p-4">

@@ -1,12 +1,21 @@
 import { SITE_URL } from "@/lib/site";
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Noto_Sans, Noto_Sans_Devanagari } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({
+// Google Fonts via next/font (self-hosted at build time, no runtime request to Google):
+// Noto Sans for Latin text and Noto Sans Devanagari for Hindi words like "दवाई".
+const notoSans = Noto_Sans({
   subsets: ["latin"],
   variable: "--font-body",
   display: "swap",
+});
+const notoDevanagari = Noto_Sans_Devanagari({
+  subsets: ["devanagari"],
+  weight: ["400", "600", "700"],
+  variable: "--font-deva",
+  display: "swap",
+  preload: false,
 });
 
 const DESCRIPTION =
@@ -43,7 +52,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} antialiased`}>{children}</body>
+      <body className={`${notoSans.variable} ${notoDevanagari.variable} antialiased`}>{children}</body>
     </html>
   );
 }

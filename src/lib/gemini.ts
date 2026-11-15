@@ -18,6 +18,32 @@ const CardSchema = z.object({
   dose_change: z.null().optional(),
 });
 
+/**
+ * Gemini structured output: the same contract as {@link CardSchema}, sent as `responseSchema`
+ * so the model must return this JSON shape. zod still validates it afterwards (defence in depth).
+ */
+export const CARD_RESPONSE_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    severity: { type: "STRING", enum: ["info", "review_required", "urgent_review"] },
+    title: { type: "STRING" },
+    elder_line_hi: { type: "STRING" },
+    caretaker_line_hi: { type: "STRING" },
+    family_line_en: { type: "STRING" },
+    tell_doctor: { type: "STRING" },
+    changes_prescription: { type: "BOOLEAN" },
+  },
+  required: [
+    "severity",
+    "title",
+    "elder_line_hi",
+    "caretaker_line_hi",
+    "family_line_en",
+    "tell_doctor",
+    "changes_prescription",
+  ],
+} as const;
+
 /** Gemini models, tried in order — override with GEMINI_MODEL if Google renames/retires them. */
 function geminiModels(): string[] {
   const env = process.env.GEMINI_MODEL;
@@ -197,7 +223,11 @@ Rules:
   try {
     const text = await callGemini(key, {
       contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.2, responseMimeType: "application/json" },
+      generationConfig: {
+        temperature: 0.2,
+        responseMimeType: "application/json",
+        responseSchema: CARD_RESPONSE_SCHEMA,
+      },
     });
     const json = JSON.parse(stripFences(text)) as unknown;
     const validated = validateWarnOnlyCard(json);
