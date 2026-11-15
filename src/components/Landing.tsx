@@ -169,14 +169,14 @@ function Mockup() {
     },
   ];
   return (
-    <figure className="relative mx-auto w-full max-w-[560px] xl:h-[600px]">
+    <figure className="relative mx-auto w-full max-w-[560px] xl:h-[600px] xl:max-w-[600px]">
       <figcaption className="sr-only">
         Example screens: the older adult&apos;s medicine confirmation, a safety alert and a weekly family summary.
       </figcaption>
       {/* phone: older adult's view */}
       <div
         aria-hidden="true"
-        className="mx-auto w-[280px] max-w-full rounded-[2.25rem] border-[9px] border-stone-900 bg-white p-4 shadow-[0_24px_60px_-24px_rgba(15,92,76,0.45)] xl:absolute xl:left-[120px] xl:top-0"
+        className="mx-auto w-[280px] max-w-full rounded-[2.25rem] border-[9px] border-stone-900 bg-white p-4 shadow-[0_24px_60px_-24px_rgba(15,92,76,0.45)] xl:absolute xl:left-[160px] xl:top-0"
       >
         <div className="mx-auto mb-3 h-1.5 w-14 rounded-full bg-stone-200" />
         <p className="text-sm font-semibold text-[var(--muted)]">Namaste, Amma</p>
@@ -209,14 +209,14 @@ function Mockup() {
 
       <div className="mx-auto mt-6 grid max-w-[560px] gap-3 sm:grid-cols-2 xl:mt-0 xl:contents">
         {/* safety alert */}
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950 shadow-sm xl:absolute xl:left-0 xl:top-24 xl:w-[190px] xl:shadow-lg">
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950 shadow-sm xl:absolute xl:left-0 xl:top-28 xl:w-[170px] xl:shadow-lg">
           <p className="flex items-center gap-1.5 font-bold">
             <ShieldCheck size={16} aria-hidden="true" /> Medicine safety alert
           </p>
           <p className="mt-1">Possible interaction detected. Ask a doctor or pharmacist to review it.</p>
         </div>
         {/* family adherence summary */}
-        <div className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm xl:absolute xl:bottom-10 xl:right-0 xl:w-[190px] xl:shadow-lg">
+        <div className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm xl:absolute xl:bottom-12 xl:right-0 xl:w-[175px] xl:shadow-lg">
           <p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Example screen · Family</p>
           <p className="mt-2 text-lg font-bold leading-tight">6 of 7 doses confirmed</p>
           <p className="text-3xl font-bold text-[var(--brand)]">86%</p>
@@ -311,7 +311,7 @@ export default function Landing({ invite = "", toggles }: { invite?: string; tog
 
       <main id="top">
         <section className="border-b border-stone-200 bg-gradient-to-b from-[var(--soft)] to-white">
-          <div className="mx-auto grid max-w-6xl items-center gap-12 px-5 pb-16 pt-10 md:pt-16 lg:grid-cols-2">
+          <div className="mx-auto grid max-w-6xl items-center gap-12 px-5 pb-16 pt-10 md:pt-16 lg:grid-cols-2 xl:grid-cols-[1fr_600px]">
             <div>
               <p className="text-sm font-semibold uppercase tracking-wide text-[var(--brand)]">{tr("landing.badge")}</p>
               <h1 className="mt-4 text-4xl font-bold leading-tight tracking-tight md:text-5xl">

@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "ApnaHaath — Dawai unke haath se",
+    name: "ApnaHaath: medicines and appointments for families",
     short_name: "ApnaHaath",
     description:
       "A shared medicine log for an elder, her caretaker and her family. Only the elder marks a dose as taken; AI can warn but never change a prescription.",
