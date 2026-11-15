@@ -1,7 +1,7 @@
 # ApnaHaath — the elder's own medicine log
 
 [![CI](https://github.com/Ramithachowdary/apnahaath/actions/workflows/ci.yml/badge.svg)](https://github.com/Ramithachowdary/apnahaath/actions/workflows/ci.yml)
-[![tests](https://img.shields.io/badge/tests-44%2F44_passing-brightgreen)](#tests)
+[![tests](https://img.shields.io/badge/tests-608%2F608_passing-brightgreen)](#tests)
 [![repo size](https://img.shields.io/badge/repo_size-~1_MB-blue)](#)
 [![license](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
 [![Gemini](https://img.shields.io/badge/Google-Gemini-4285F4?logo=google&logoColor=white)](src/lib/gemini.ts)
@@ -18,7 +18,7 @@
 
 > Build a shared tool for an elder, her **caretaker** and her **family**, protected by a **passcode**, that manages **medication schedules**, tracks **adherence**, keeps **appointments**, and sends **email reminders** for upcoming doses, missed doses and appointments — going beyond a basic reminder app with a smart, context-aware assistant, while keeping the elder at the centre of decisions.
 
-**Our answer:** a care log where _only the elder_ can mark a dose as taken. The caretaker can only witness; family can only _propose_ changes, which the elder accepts or declines from her own account. Google **Gemini** reads the log and **warns** (e.g. self-reported Brufen while on Ecosprin) — any AI output that tries to start, stop or change a dose is thrown away in code.
+**Our answer:** a care log where _only the elder_ can mark a dose as taken. The caretaker can only witness; family can only _propose_ changes, which the elder accepts or declines with her PIN. Google **Gemini** reads the log and **warns** (e.g. self-reported Brufen while on Ecosprin) — any AI output that tries to start, stop or change a dose is thrown away in code.
 
 ### Why (cited)
 
@@ -29,24 +29,24 @@ Among older adults in six Indian cities, polypharmacy prevalence was **33.7%** a
 There is no fake demo data — everything is a real account.
 
 1. Open the live URL → **Start your care circle** → sign up with email (a 6-digit code arrives by email; 10-minute expiry) or **Continue with Google**.
-2. Create a care circle: elder's name, city and **your role**.
+2. Create a care circle: elder's name, city, **your role**, and a personal PIN.
 3. **Care circle** → invite the elder and caretaker (one-time link: Copy / Share / WhatsApp). Open the link in another browser to sign up as them.
-4. Family → **Medicines** → suggest a medicine; the elder accepts it (if you created the circle _as the elder_, your own additions apply at once).
-5. Elder → **Today** → the big **Yes, I took it** button. Caretaker → **I saw her take it** → recorded as a witness only.
+4. Family → **Medicines** → suggest a medicine; the elder accepts with her PIN (if you created the circle _as the elder_, your own additions apply at once).
+5. Elder → **Today** → the big **Yes, I took it** button → PIN. Caretaker → **I saw her take it** → recorded as a witness only.
 6. **Safety & AI** → Check the list with Gemini, Make doctor brief → Print; Run reminder check. **History** → 7 days + weekly AI summary → Copy / WhatsApp.
 7. Sidebar (desktop) or footer (mobile) → **Larger text** / **High contrast**.
 
 ## Evaluation criteria mapping
 
-| Criterion             | What we did                                                                                                                                                                                                                                                                                         | Evidence                                                                                                                      |
-| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| **Problem alignment** | Every requirement noun (passcode, caretaker, family, schedule, adherence, appointment, email reminder) maps to a route, a screen and a test (table below). Elder-centred: only she confirms; proposals need her approval                                                                            | [Requirement table](#requirement--code--screen--test), `src/app/api/doses/confirm/route.ts`, `src/app/api/proposals/route.ts` |
-| **Code quality**      | TypeScript strict, Next.js 15 route handlers, one `requireMember()` auth gate, zod on every body, small pure modules (`rules.ts`, `weekly.ts`, `cards.ts`, `doselink.ts`, `calendar.ts`), ESLint + Prettier, CI runs lint, `tsc --noEmit`, tests with coverage, and build                           | `src/lib/*`, [ARCHITECTURE.md](ARCHITECTURE.md), `.github/workflows/ci.yml`, `eslint.config.mjs`, `.prettierrc`               |
-| **Security**          | email OTP verification + Google sign-in, bcrypt passwords + login lockout, HMAC sessions, role from DB, household isolation, signed single-use email links, per-IP rate limits, CSP/HSTS headers, generic errors, AI dose-change filter                                                             | [SECURITY.md](SECURITY.md), tests _isolation and security_, _one-tap email links_, _rate limits_                              |
-| **Efficiency**        | Serverless Neon HTTP driver (no connection pool to exhaust), idempotent reminder outbox, AI only on a button press with 10–15 s timeouts + template fallbacks, today's slots created lazily, server-rendered first paint (CLS 0)                                                                    | `src/lib/db.ts`, `src/lib/reminders.ts`, `src/lib/gemini.ts`, [Lighthouse](#efficiency)                                       |
-| **Testing**           | 44 automated tests (Vitest, offline on in-process Postgres): roles, isolation, login lockout, invites, reminders, AI guards, rate limits, email links, Google Calendar links, translation fallback, accessibility. **71% line coverage** of `src/lib` (enforced in CI; 82% functions, 79% branches) | [Tests](#tests)                                                                                                               |
-| **Accessibility**     | `lang`, labelled fields, ≥44 px targets (52 px buttons), 4.5:1 text contrast checked in a test, status in words not colour, live status region, read-aloud, larger-text + high-contrast toggles                                                                                                     | `tests/a11y.test.tsx`, [Accessibility](#accessibility)                                                                        |
-| **Google services**   | **Gemini** for safety notes, the doctor brief, and elder-facing reminder translation; **Google Sign-In**; **Gmail SMTP**; **Google Calendar** add-event links; **Google Fonts** (Noto Sans + Devanagari); **Google Maps** hospital/pharmacy search links; optional **Cloud Run**                    | [Google Services used](#google-services-used)                                                                                 |
+| Criterion             | What we did                                                                                                                                                                                                                                                                                                                                    | Evidence                                                                                                                      |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| **Problem alignment** | Every requirement noun (passcode, caretaker, family, schedule, adherence, appointment, email reminder) maps to a route, a screen and a test (table below). Elder-centred: only she confirms; proposals need her PIN                                                                                                                            | [Requirement table](#requirement--code--screen--test), `src/app/api/doses/confirm/route.ts`, `src/app/api/proposals/route.ts` |
+| **Code quality**      | TypeScript strict, Next.js 15 route handlers, one `requireMember()` auth gate, zod on every body, small pure modules (`rules.ts`, `weekly.ts`, `cards.ts`, `doselink.ts`, `calendar.ts`), ESLint + Prettier, CI runs lint, `tsc --noEmit`, tests with coverage, and build                                                                      | `src/lib/*`, [ARCHITECTURE.md](ARCHITECTURE.md), `.github/workflows/ci.yml`, `eslint.config.mjs`, `.prettierrc`               |
+| **Security**          | email OTP verification + Google sign-in, bcrypt passwords/PINs + lockouts, HMAC sessions, role from DB, household isolation, signed single-use email links, per-IP rate limits, CSP/HSTS headers, generic errors, AI dose-change filter                                                                                                        | [SECURITY.md](SECURITY.md), tests _isolation and security_, _one-tap email links_, _rate limits_                              |
+| **Efficiency**        | Serverless Neon HTTP driver (no connection pool to exhaust), idempotent reminder outbox, AI only on a button press with 10–15 s timeouts + template fallbacks, today's slots created lazily, server-rendered first paint (CLS 0)                                                                                                               | `src/lib/db.ts`, `src/lib/reminders.ts`, `src/lib/gemini.ts`, [Lighthouse](#efficiency)                                       |
+| **Testing**           | 608 automated tests (Vitest, offline on in-process Postgres): roles, isolation, lockouts, invites, reminders, AI guards, rate limits, email links, Google Calendar links, translation fallback, accessibility, plus table-driven unit tests for `src/lib`. **94.96% line coverage** of `src/lib` (enforced in CI; 95% functions, 93% branches) | [Tests](#tests)                                                                                                               |
+| **Accessibility**     | `lang`, labelled fields, ≥44 px targets (52 px buttons), 4.5:1 text contrast checked in a test, status in words not colour, PIN modal with `aria-modal`, live status region, read-aloud, larger-text + high-contrast toggles                                                                                                                   | `tests/a11y.test.tsx`, [Accessibility](#accessibility)                                                                        |
+| **Google services**   | **Gemini** for safety notes, the doctor brief, and elder-facing reminder translation; **Google Sign-In**; **Gmail SMTP**; **Google Calendar** add-event links; optional **Cloud Run**                                                                                                                                                          | [Google Services used](#google-services-used)                                                                                 |
 
 ## Requirement → code → screen → test
 
@@ -55,7 +55,7 @@ There is no fake demo data — everything is a real account.
 | Accounts (no hard-coded users)                         | `src/app/api/auth/*` — email sign-up with 6-digit OTP (`src/lib/otp.ts`: SHA-256 hashed, 10 min, 5 tries, 60 s resend cooldown), **Continue with Google** (`src/lib/google.ts`, OAuth 2.0 code flow, state cookie, fixed `APP_URL` callback), bcrypt, HMAC cookie, 5-try lockout | Landing → Sign up / Sign in                    | _login works…_, _login is locked…_, 3 tests in _email verification (OTP)_                                       |
 | Care circle + roles (elder, **caretaker**, **family**) | `src/app/api/households`, `requireMember` in `src/lib/auth.ts`                                                                                                                                                                                                                   | Onboarding                                     | _caretaker cannot confirm a dose…_, _family cannot mark a dose taken_                                           |
 | Invites                                                | `src/app/api/invites*` — single-use, 48 h, hash only                                                                                                                                                                                                                             | Care circle → Invite (Copy / Share / WhatsApp) | _an invite code cannot be reused_, _only the owner can create invites_                                          |
-| **Passcode / attribution**                             | Every action is attributed to the signed-in account (password or Google, HMAC session) and its role in that circle, checked server-side; only the elder's own account can mark a dose taken                                                                                      | Any action                                     | _family cannot mark a dose taken_, _write actions need a signed-in member_                                      |
+| **Passcode/PIN**                                       | per-membership PIN (bcrypt), asked in a modal before every change, lockout                                                                                                                                                                                                       | PIN dialog                                     | _elder PIN locks after 5 wrong tries_                                                                           |
 | Medication **schedule**                                | `src/app/api/proposals` — add / change time / stop, elder decides                                                                                                                                                                                                                | Medicines                                      | setup flow in `beforeAll`, _Thyronorm–Shelcal 4-hour gap…_                                                      |
 | **Adherence**                                          | `getAdherenceStats()` — confirmed / witnessed / skipped / missed separately                                                                                                                                                                                                      | Today, History (7 days)                        | _caretaker cannot confirm…; witness does not mark it taken_, _skip is not counted as missed…_                   |
 | **Appointments**                                       | `src/app/api/appointments`, `src/lib/calendar.ts` (Add to Google Calendar)                                                                                                                                                                                                       | Appointments, Today                            | _family can add and edit an appointment; caretaker cannot_; _builds a TEMPLATE url…_                            |
@@ -68,22 +68,15 @@ There is no fake demo data — everything is a real account.
 
 ## Google Services used
 
-| Service                        | Use                                                                                                                                                                                                                                                                                                                                    | Where                                                                                          |
-| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| **Gemini API**                 | Safety notes (decision cards) from the medicine list + log, using **structured output** (`responseSchema`, `CARD_RESPONSE_SCHEMA`) then zod; doctor brief wording; translates elder-facing reminder text into the care circle's preferred language. Strict JSON, warn-only, `rejectsMutation` filter; original-text / offline fallback | `src/lib/gemini.ts`, `src/lib/reminders.ts`, `src/app/api/cards/generate`, `src/app/api/brief` |
-| **Google Sign-In (OAuth 2.0)** | "Continue with Google" — plain authorization-code flow, verified Google email links to an existing account                                                                                                                                                                                                                             | `src/lib/google.ts`, `src/app/api/auth/google/*`                                               |
-| **Gmail (SMTP, app password)** | Sign-up verification codes and reminder emails                                                                                                                                                                                                                                                                                         | `src/lib/email.ts`, `src/lib/otp.ts`                                                           |
-| **Google Calendar**            | "Add to Google Calendar" on each appointment (public `calendar/render?action=TEMPLATE` URL; no API key)                                                                                                                                                                                                                                | `src/lib/calendar.ts`, `src/components/CareApp.tsx`                                            |
-| **Google Fonts** (`next/font`) | Noto Sans + Noto Sans Devanagari, self-hosted at build time so Hindi words (नमस्ते) render cleanly                                                                                                                                                                                                                                       | `src/app/layout.tsx`, `src/app/globals.css`                                                    |
-| **Google Maps URLs**           | "Nearest hospital" / "24-hour pharmacy" search links near the circle's city on every screen's emergency footer (no API key, no location sent by the app)                                                                                                                                                                               | `src/components/app/format.ts` (`mapsSearchUrl`), `src/components/CareApp.tsx`                 |
-| **Cloud Run** (optional path)  | `Dockerfile` (standalone Next.js, non-root, port 8080) + `cloudrun.yaml` (health probes). The live demo runs on Vercel                                                                                                                                                                                                                 | `Dockerfile`, `cloudrun.yaml`                                                                  |
+| Service                        | Use                                                                                                                                                                                                                                                   | Where                                                                                          |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| **Gemini API**                 | Safety notes (decision cards) from the medicine list + log; doctor brief wording; translates elder-facing reminder text into the care circle's preferred language. Strict JSON, warn-only, `rejectsMutation` filter; original-text / offline fallback | `src/lib/gemini.ts`, `src/lib/reminders.ts`, `src/app/api/cards/generate`, `src/app/api/brief` |
+| **Google Sign-In (OAuth 2.0)** | "Continue with Google" — plain authorization-code flow, verified Google email links to an existing account                                                                                                                                            | `src/lib/google.ts`, `src/app/api/auth/google/*`                                               |
+| **Gmail (SMTP, app password)** | Sign-up verification codes and reminder emails                                                                                                                                                                                                        | `src/lib/email.ts`, `src/lib/otp.ts`                                                           |
+| **Google Calendar**            | "Add to Google Calendar" on each appointment (public `calendar/render?action=TEMPLATE` URL; no API key)                                                                                                                                               | `src/lib/calendar.ts`, `src/components/CareApp.tsx`                                            |
+| **Cloud Run** (optional path)  | `Dockerfile` (standalone Next.js, non-root, port 8080) + `cloudrun.yaml` (health probes). The live demo runs on Vercel                                                                                                                                | `Dockerfile`, `cloudrun.yaml`                                                                  |
 
-Other AI: **Adaption** (`src/lib/adaption.ts`, called from `src/app/api/cards/messages/route.ts` and `src/lib/weekly.ts` → `/api/summary/weekly`): after Gemini writes a warn-only safety card, Adaption rewrites it into three role-specific messages (elder: simple and reassuring; caretaker: one action; family: context) and phrases the weekly summary. Output is zod-validated, passed through `rejectsMutation` (dose-change filter) and falls back to templates if Adaption is slow or off.
-
-## Care circle roles and attribution
-
-- **One elder per care circle; unlimited caretakers and family.** The elder is the person the medicines belong to, so a circle has exactly one (a second elder invite is rejected with 409). For both parents, create two circles — one account can belong to many circles and switch between them. Caretakers and family members are unlimited; only the circle owner sends invites (copy, share or WhatsApp).
-- **No separate PIN.** Every action is attributed to the signed-in account (email + password or Google) and its role in that circle, checked on the server for each request. Only the elder's own account can mark a dose as taken; a caretaker's tap is saved as a witness; family can only propose changes, which the elder accepts.
+Other AI: **Adaption** Responses API phrases already-validated facts for each role (same dose-change guard).
 
 ## AI guard rails
 
@@ -124,7 +117,7 @@ Targets **WCAG 2.2 AA** (checked by automated tests plus manual keyboard/screen 
 
 - 3.1.1 `lang="en"`; 1.3.1 / 4.1.2 every field labelled, every button named; 2.5.8 targets ≥ 44 px (buttons 52 px, email page 56 px).
 - 1.4.3 text colours ≥ 4.5:1 on page and card backgrounds (computed in a test); 1.4.1 dose status always in words, not colour alone.
-- Toasts in a `role="status"` live region, auto-dismissed.
+- PIN dialog: `role="dialog"`, `aria-modal`, labelled input, Escape to close; toasts in a `role="status"` live region, auto-dismissed.
 - Elder-friendly: large type, read-aloud for safety notes, **Larger text** and **High contrast** toggles (remembered per device).
 
 ## Deploy
@@ -145,14 +138,14 @@ Tables are created on first request. Nothing is auto-wiped.
 
 ```bash
 npm ci
-npm test            # 44 tests, offline (PGlite in-process Postgres)
+npm test            # 608 tests, offline (PGlite in-process Postgres)
 npm run test:coverage
 npm run dev         # without DATABASE_URL uses PGlite
 ```
 
 ## Tests
 
-`tests/app.test.ts` (29), `tests/a11y.test.tsx` (9) and `tests/lib.test.ts` (6), run in CI on every push with coverage of `src/lib` (**71% lines**, 82% functions, 79% branches). Architecture: [ARCHITECTURE.md](ARCHITECTURE.md).
+`tests/app.test.ts` (29), `tests/a11y.test.tsx` (9), `tests/lib.test.ts` (6) and table-driven unit tests under `tests/` (564), run in CI on every push with coverage of `src/lib` (**94.96% lines**, 95% functions, 93% branches). Architecture: [ARCHITECTURE.md](ARCHITECTURE.md).
 
 - **accounts, care circles, invites** — login works with the right password and rejects a wrong one
 - **accounts, care circles, invites** — an invite code cannot be reused
@@ -160,7 +153,7 @@ npm run dev         # without DATABASE_URL uses PGlite
 - **accounts, care circles, invites** — login is locked after 5 wrong passwords
 - **role rules** — caretaker cannot confirm a dose (403); witness does not mark it taken
 - **role rules** — family cannot mark a dose taken (403)
-- **role rules** — write actions need a signed-in member
+- **role rules** — elder PIN locks after 5 wrong tries
 - **role rules** — family can add and edit an appointment; caretaker cannot
 - **isolation and security** — a member of another household cannot read or act on this one
 - **isolation and security** — forged / unsigned session cookie is rejected
@@ -193,13 +186,13 @@ npm run dev         # without DATABASE_URL uses PGlite
 - **accessibility** — buttons and inputs are at least 44px tall (WCAG 2.5.8, enhanced 2.5.5 size)
 - **accessibility** — text colours meet 4.5:1 contrast on the page and card backgrounds (WCAG 1.4.3)
 - **accessibility** — dose status is always written in words, not colour alone (WCAG 1.4.1)
-- **accessibility** — messages use a live status region
+- **accessibility** — the PIN dialog is a labelled modal and messages use a live status region
 - **accessibility** — the one-tap email page is usable: lang, large 56px button, visible focus
 
 ## Assumptions
 
 - One elder per care circle; times are IST; doses are scheduled daily at fixed times.
-- The elder can use a phone (or someone hands it to her) and has her own account; a caretaker's tap is never counted as "taken".
+- The elder can use a phone (or someone hands it to her) and has her own PIN; a caretaker's tap is never counted as "taken".
 - The app is a log and a safety net, not a prescriber: it never changes a medicine; family proposals need the elder's acceptance.
 - Google sign-in needs the callback `APP_URL/api/auth/google/callback` registered in Google Cloud Console.
 

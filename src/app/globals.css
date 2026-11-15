@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 :root {
-  --bg: #f6f7f5;
+  --bg: #f7f6f3;
   --ink: #111827;
   --muted: #4b5563;
   --brand: #0f5c4c;
@@ -42,17 +42,17 @@ h3,
 }
 
 .btn {
-  @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-base font-semibold transition focus:outline-none focus-visible:ring-4 focus-visible:ring-emerald-700/30 disabled:cursor-not-allowed disabled:opacity-50;
+  @apply inline-flex items-center justify-center gap-2 rounded-lg px-5 py-3 text-base font-semibold transition focus:outline-none focus-visible:ring-4 focus-visible:ring-emerald-700/30 disabled:cursor-not-allowed disabled:opacity-50;
   min-height: 3.25rem;
 }
 
 .btn-primary {
-  @apply btn text-white shadow-sm hover:brightness-110;
+  @apply btn text-white hover:brightness-110;
   background: var(--brand);
 }
 
 .btn-accent {
-  @apply btn text-white shadow-sm hover:brightness-110;
+  @apply btn text-white hover:brightness-110;
   background: var(--brand-2);
 }
 
@@ -68,16 +68,13 @@ h3,
 }
 
 .panel {
-  @apply rounded-2xl border p-6;
+  @apply rounded-lg border p-6;
   background: var(--card);
   border-color: var(--line);
-  box-shadow:
-    0 1px 2px rgba(16, 24, 40, 0.04),
-    0 4px 16px rgba(16, 24, 40, 0.05);
 }
 
 .input {
-  @apply w-full rounded-xl border bg-white px-4 py-3 text-base outline-none transition focus:border-emerald-700 focus:ring-4 focus:ring-emerald-700/15;
+  @apply w-full rounded-lg border bg-white px-4 py-3 text-base outline-none transition focus:border-emerald-700 focus:ring-4 focus:ring-emerald-700/15;
   border-color: #d1d5db;
   min-height: 3rem;
 }
@@ -87,7 +84,7 @@ h3,
 }
 
 .nav-item {
-  @apply flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-[15px] font-medium transition hover:bg-stone-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-emerald-700/30;
+  @apply flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-[15px] font-medium transition hover:bg-stone-100 focus:outline-none focus-visible:ring-4 focus-visible:ring-emerald-700/30;
   min-height: 2.75rem;
   color: var(--muted);
 }
