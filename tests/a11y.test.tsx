@@ -2,13 +2,21 @@
  * Accessibility checks (WCAG 2.2 AA oriented). These are automated structural checks on the
  * server-rendered landing page, the one-tap dose page and the CSS — not a full manual audit.
  */
-import { readFileSync } from "fs";
+import { readdirSync, readFileSync } from "fs";
 import path from "path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import CareApp from "../src/components/CareApp";
 
 const root = path.resolve(__dirname, "..");
+/** The care app UI is split across CareApp.tsx and src/components/app/*; check them together. */
+const appSource = () =>
+  [
+    "src/components/CareApp.tsx",
+    ...readdirSync(path.join(root, "src/components/app")).map((f) => `src/components/app/${f}`),
+  ]
+    .map((f) => readFileSync(path.join(root, f), "utf8"))
+    .join("\n");
 const css = readFileSync(path.join(root, "src/app/globals.css"), "utf8");
 const landing = renderToStaticMarkup(<CareApp hasSession={false} />);
 
@@ -69,14 +77,14 @@ describe("accessibility", () => {
   });
 
   it("dose status is always written in words, not colour alone (WCAG 1.4.1)", () => {
-    const src = readFileSync(path.join(root, "src/components/CareApp.tsx"), "utf8");
+    const src = appSource();
     for (const status of ["pending", "elder_confirmed", "skipped", "missed"]) {
       expect(src).toMatch(new RegExp(`${status}: "[A-Z][^"]+"`));
     }
   });
 
   it("display toggles switch their label and aria-pressed (Large/Small, High/Normal contrast)", () => {
-    const src = readFileSync(path.join(root, "src/components/CareApp.tsx"), "utf8");
+    const src = appSource();
     expect(src).toContain("aria-pressed={large}");
     expect(src).toContain('{large ? "Small" : "Large"}');
     expect(src).toContain("aria-pressed={contrast}");
@@ -84,7 +92,7 @@ describe("accessibility", () => {
   });
 
   it("messages use a live status region", () => {
-    const src = readFileSync(path.join(root, "src/components/CareApp.tsx"), "utf8");
+    const src = appSource();
     expect(src).toMatch(/role="status"/);
   });
 
