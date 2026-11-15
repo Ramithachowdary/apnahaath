@@ -96,7 +96,7 @@ const FORBIDDEN = [
   /\bdiscontinu(e|ed|ing)\b/i,
   /\b(hold|withhold|pause|suspend) (this|that|the|her|his|your|all)? ?(medicine|medication|tablet|pill|dose|drug)s?\b/i,
   /\b(do not|don't|dont|never) (take|give) (it|this|that|the|her|his|your|any)\b/i,
-  /\bskip (your|her|his|the|this|a|next|today's|tonight's) (dose|tablet|pill|medicine)\b/i,
+  /\bskip ((your|her|his|the|this|a|today's|tonight's) )?(next )?(dose|tablet|pill|medicine)\b/i,
   /\b(reduce|halve|cut down|taper|double|triple)\b[^.]{0,25}\b(dose|dosage|tablets?|pills?|mg)\b/i,
   /\bswitch (to|from) [a-z]/i,
   /\b(instead of|in place of) (your|her|his|the) (medicine|tablet|pill|dose)\b/i,

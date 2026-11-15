@@ -9,6 +9,90 @@ import { SKIP_REASONS, STATUS_LABEL } from "./constants";
 import { api, time12, dayLabel } from "./helpers";
 import { StatusChip, Stat, AddToGoogleCalendar } from "./ui";
 
+/** First-run checklist: the four steps that make the shared record useful. Hidden once all are done. */
+function SetupChecklist({ state, go }: { state: State; go: (t: Tab) => void }) {
+  const confirmed =
+    state.history.some((h) => h.status === "elder_confirmed") ||
+    state.doseSlots.some((h) => h.status === "elder_confirmed");
+  const steps: { label: string; hint: string; done: boolean; tab: Tab; cta: string }[] = [
+    {
+      label: "Add medicines",
+      hint: "Each medicine with its time.",
+      done: state.medicines.length > 0,
+      tab: "Medicines",
+      cta: "Add medicines",
+    },
+    {
+      label: "Invite the elder and caretaker",
+      hint: "Everyone sees the same record.",
+      done: state.members.length > 1,
+      tab: "Care circle",
+      cta: "Invite",
+    },
+    {
+      label: "First confirmation",
+      hint: "The elder taps “Yes, I took it”.",
+      done: confirmed,
+      tab: "Today",
+      cta: "See today",
+    },
+    {
+      label: "Share the doctor brief",
+      hint: "A one-page summary for the next visit.",
+      done: false,
+      tab: "Safety & AI",
+      cta: "Open brief",
+    },
+  ];
+  const doneCount = steps.filter((x) => x.done).length;
+  if (doneCount >= 3 && state.history.length > 0) return null;
+  return (
+    <section aria-labelledby="setup-h" className="panel lg:col-span-2">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 id="setup-h" className="text-xl font-semibold">
+          Get your care circle ready
+        </h2>
+        <p className="text-sm text-[var(--muted)]">
+          {doneCount} of {steps.length} done
+        </p>
+      </div>
+      <div
+        className="mt-3 h-1.5 w-full rounded-full bg-stone-200"
+        role="progressbar"
+        aria-label="Setup progress"
+        aria-valuemin={0}
+        aria-valuemax={steps.length}
+        aria-valuenow={doneCount}
+      >
+        <div
+          className="h-1.5 rounded-full bg-[var(--brand)]"
+          style={{ width: `${(doneCount / steps.length) * 100}%` }}
+        />
+      </div>
+      <ol className="mt-4 grid gap-2 md:grid-cols-2">
+        {steps.map((x, i) => (
+          <li
+            key={x.label}
+            className="flex items-center justify-between gap-3 rounded-lg border border-[var(--line)] p-3"
+          >
+            <div>
+              <p className="font-semibold">
+                {i + 1}. {x.label} {x.done && <span className="text-sm font-normal text-[var(--ok)]">· Done</span>}
+              </p>
+              <p className="text-sm text-[var(--muted)]">{x.hint}</p>
+            </div>
+            {!x.done && (
+              <button type="button" className="btn-ghost shrink-0" onClick={() => go(x.tab)}>
+                {x.cta}
+              </button>
+            )}
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
 export function Today({
   state,
   busy,
@@ -34,8 +118,9 @@ export function Today({
   const firstName = state.me.name.split(" ")[0];
   return (
     <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
+      <SetupChecklist state={state} go={go} />
       <section
-        className="rounded-3xl bg-[var(--soft)] p-5 lg:col-span-2"
+        className="rounded-lg border border-[var(--line)] bg-[var(--soft)] p-5 lg:col-span-2"
         aria-label={role === "elder" ? "Your next dose" : "Today at a glance"}
       >
         <p className="text-lg font-semibold">
@@ -52,9 +137,7 @@ export function Today({
           </p>
         ) : (
           <p className="mt-2 text-xl font-semibold">
-            {state.doseSlots.length > 0
-              ? "All of today's doses are answered. Shabash! 🌼"
-              : "No doses scheduled today."}
+            {state.doseSlots.length > 0 ? "All of today's doses are answered. Shabash!" : "No doses scheduled today."}
           </p>
         )}
         {state.doseSlots.length > 0 && (

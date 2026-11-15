@@ -119,6 +119,30 @@ const FAQ = [
   },
 ];
 
+const OUTCOMES = [
+  {
+    title: "Know every dose was taken, by her, on time",
+    text: "Only the elder's own account can mark a dose taken. A caretaker's tap is saved as a witness, never as taken.",
+  },
+  {
+    title: "One shared record for family, caretaker and doctor",
+    text: "Doses, skips, appointments and changes in one append-only log, with a one-page brief for the doctor.",
+  },
+  {
+    title: "A safety check before a new medicine",
+    text: "Before a new tablet goes in, ApnaHaath flags known clashes with what she already takes. It warns; it never changes a dose.",
+  },
+];
+
+const COMPARE: { feature: string; us: string; reminder: string; whatsapp: string }[] = [
+  { feature: "Dose confirmed by the elder herself", us: "Yes", reminder: "No", whatsapp: "No" },
+  { feature: "Caretaker logged as witness, not as taken", us: "Yes", reminder: "No", whatsapp: "No" },
+  { feature: "Append-only log nobody can quietly edit", us: "Yes", reminder: "No", whatsapp: "No" },
+  { feature: "One-page brief for the doctor", us: "Yes", reminder: "No", whatsapp: "No" },
+  { feature: "AI that can never change a dose", us: "Yes", reminder: "Not applicable", whatsapp: "No" },
+  { feature: "Family sees the same record", us: "Yes", reminder: "No", whatsapp: "Partly, in chat" },
+];
+
 function Mockup() {
   const rows = [
     {
@@ -321,6 +345,61 @@ export default function Landing({
             <Mockup />
           </section>
         </div>
+
+        <section aria-labelledby="value-title" className="border-y border-stone-200 bg-white">
+          <div className="mx-auto max-w-6xl px-5 py-16">
+            <p className="text-sm font-semibold uppercase tracking-wide text-[var(--brand)]">What you get</p>
+            <h2 id="value-title" className="mt-2 text-3xl font-bold tracking-tight">
+              A medicine record your whole family can trust
+            </h2>
+            <ul className="mt-8 grid gap-4 md:grid-cols-3">
+              {OUTCOMES.map((o) => (
+                <li key={o.title} className="rounded-lg border border-stone-200 p-6">
+                  <h3 className="text-lg font-semibold leading-snug">{o.title}</h3>
+                  <p className="mt-2 text-[var(--muted)]">{o.text}</p>
+                </li>
+              ))}
+            </ul>
+
+            <h2 className="mt-16 text-2xl font-bold tracking-tight">Why not just a reminder app?</h2>
+            <p className="mt-2 max-w-2xl text-[var(--muted)]">
+              Reminders tell her when. They can&apos;t tell the family whether she actually took it, or who gave it.
+            </p>
+            <div className="mt-6 overflow-x-auto rounded-lg border border-stone-200">
+              <table className="w-full min-w-[560px] text-left text-sm">
+                <caption className="sr-only">ApnaHaath compared with pill reminder apps and WhatsApp groups</caption>
+                <thead className="bg-stone-50 text-[var(--muted)]">
+                  <tr>
+                    <th scope="col" className="px-4 py-3 font-semibold">
+                      What matters
+                    </th>
+                    <th scope="col" className="px-4 py-3 font-semibold text-[var(--brand)]">
+                      ApnaHaath
+                    </th>
+                    <th scope="col" className="px-4 py-3 font-semibold">
+                      Pill reminder apps
+                    </th>
+                    <th scope="col" className="px-4 py-3 font-semibold">
+                      WhatsApp group
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {COMPARE.map((r) => (
+                    <tr key={r.feature} className="border-t border-stone-200">
+                      <th scope="row" className="px-4 py-3 font-medium">
+                        {r.feature}
+                      </th>
+                      <td className="px-4 py-3 font-semibold text-[var(--brand)]">{r.us}</td>
+                      <td className="px-4 py-3 text-[var(--muted)]">{r.reminder}</td>
+                      <td className="px-4 py-3 text-[var(--muted)]">{r.whatsapp}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
 
         <section aria-label="Why it matters" className="border-y border-amber-200/70 bg-amber-50/70">
           <div className="mx-auto grid max-w-6xl gap-6 px-5 py-10 md:grid-cols-[1fr_1fr_1.2fr] md:items-center">

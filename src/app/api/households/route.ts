@@ -41,7 +41,7 @@ export async function POST(req: Request) {
       user_id: u.user.id,
       household_id: id,
       role: p.data.role,
-      pin_hash: "", // PIN removed; column kept unused
+      pin_hash: "", // legacy column, unused
     }),
   ]);
   return withSession(NextResponse.json({ ok: true, householdId: id }), u.user.id, id);

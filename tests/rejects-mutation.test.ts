@@ -3,6 +3,8 @@ import { rejectsMutation } from "../src/lib/gemini";
 
 const forbidden: Array<[string, string]> = [
   ["stop taking", "Please stop taking Telma this week."],
+  ["skip the next tablet", "Skip the next tablet if she feels dizzy."],
+  ["skip the next dose", "You can skip the next dose tonight."],
   ["start taking", "Start taking an extra tablet at night."],
   ["quit taking", "Quit taking Shelcal until the swelling goes down."],
   ["resume taking", "Resume taking Ecosprin tomorrow morning."],

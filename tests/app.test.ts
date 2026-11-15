@@ -167,7 +167,7 @@ describe("role rules", () => {
     expect((await priya.call((await r.confirm()).POST, { doseSlotId: id })).status).toBe(403);
   });
 
-  it("write actions need a signed-in member (no PIN, no anonymous writes)", async () => {
+  it("write actions need a signed-in member (no anonymous writes)", async () => {
     const id = await todaySlotId(kamla);
     const anon = new Agent();
     expect((await anon.call((await r.confirm()).POST, { doseSlotId: id })).status).toBe(401);

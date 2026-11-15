@@ -41,7 +41,7 @@ export async function POST(req: Request) {
       user_id: u.user.id,
       household_id: inv.household_id,
       role: inv.role,
-      pin_hash: "", // PIN removed; column kept unused
+      pin_hash: "", // legacy column, unused
     }),
     insertEventStmt(inv.household_id, {
       id: `evt-${randomUUID()}`,
