@@ -91,4 +91,7 @@ export type State = {
 
 export type Tab = (typeof TABS)[number];
 
+/** A screen inside the dashboard: a section, or an internal tab of one. */
+export type View = "Today" | "Medicines" | "Appointments" | "Care circle" | "History" | "Safety notes" | "Doctor brief";
+
 export type ActFn = (fn: () => Promise<unknown>, okText?: string) => Promise<void>;

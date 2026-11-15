@@ -5,18 +5,18 @@ import { useState } from "react";
 import { Pill, Users } from "lucide-react";
 import { greetingKey, istHour } from "./format";
 import { useT } from "./lang";
-import type { State, Tab } from "./types";
-import { SKIP_REASONS, STATUS_LABEL } from "./constants";
+import type { State, View } from "./types";
+import { CHIP, SKIP_REASONS, STATUS_LABEL } from "./constants";
 import { api, time12, dayLabel } from "./helpers";
-import { StatusChip, Stat, AddToGoogleCalendar } from "./ui";
+import { StatusChip, AddToGoogleCalendar } from "./ui";
 
 /** First-run checklist: the four steps that make the shared record useful. Hidden once all are done. */
-function SetupChecklist({ state, go }: { state: State; go: (t: Tab) => void }) {
+function SetupChecklist({ state, go }: { state: State; go: (t: View) => void }) {
   const { tr } = useT();
   const confirmed =
     state.history.some((h) => h.status === "elder_confirmed") ||
     state.doseSlots.some((h) => h.status === "elder_confirmed");
-  const steps: { label: string; hint: string; done: boolean; tab: Tab; cta: string }[] = [
+  const steps: { label: string; hint: string; done: boolean; tab: View; cta: string }[] = [
     {
       label: tr("check.meds"),
       hint: tr("check.medsHint"),
@@ -42,7 +42,7 @@ function SetupChecklist({ state, go }: { state: State; go: (t: Tab) => void }) {
       label: tr("check.brief"),
       hint: tr("check.briefHint"),
       done: false,
-      tab: "Safety & AI",
+      tab: "Doctor brief",
       cta: tr("check.briefCta"),
     },
   ];
@@ -105,7 +105,7 @@ export function Today({
   busy: boolean;
   doAction: (fn: () => Promise<unknown>, ok?: string) => void;
   setMsg: (m: { text: string; ok?: boolean } | null) => void;
-  go: (t: Tab) => void;
+  go: (t: View) => void;
 }) {
   const role = state.me.role;
   const [skipFor, setSkipFor] = useState<string | null>(null);
@@ -216,7 +216,7 @@ export function Today({
                     <button
                       className="btn-ghost min-h-[60px] flex-1 text-lg sm:flex-none"
                       disabled={busy}
-                      onClick={() => setMsg({ text: "Okay. This dose stays open — you can answer later.", ok: true })}
+                      onClick={() => setMsg({ text: "Okay. This dose stays open. You can answer later.", ok: true })}
                     >
                       Later
                     </button>
@@ -238,7 +238,7 @@ export function Today({
                                 method: "POST",
                                 body: JSON.stringify({ doseSlotId: slot.id, reason: r }),
                               }),
-                            "Saved. A skip is your decision — it is not counted as missed.",
+                            "Saved. A skip is your decision. It is not counted as missed.",
                           );
                         }}
                       >
@@ -261,7 +261,7 @@ export function Today({
                             method: "POST",
                             body: JSON.stringify({ doseSlotId: slot.id }),
                           }),
-                        "Saved as witnessed. Only the elder can mark it as taken.",
+                        "Saved as witnessed. Only the older adult can mark it as taken.",
                       )
                     }
                   >
@@ -274,30 +274,48 @@ export function Today({
         </div>
       </section>
       <div className="space-y-6">
-        <section className="panel">
-          <h2 className="text-xl font-semibold">Today at a glance</h2>
-          <div className="mt-3 grid grid-cols-2 gap-3">
-            <Stat label="Confirmed by elder" value={a.elderConfirmed} />
-            <Stat label="Witnessed" value={a.witnessed} />
-            <Stat label="Skipped" value={a.skipped} />
-            <Stat label="Missed / not confirmed" value={a.missed} />
-          </div>
-          <div className="mt-3">
-            <Stat
-              label="Elder-confirmation rate"
-              value={a.elderConfirmationRate == null ? "—" : `${a.elderConfirmationRate}%`}
-            />
-          </div>
+        <section className="panel" aria-labelledby="glance-h">
+          <h2 id="glance-h" className="text-xl font-semibold">
+            Today at a glance
+          </h2>
+          <dl className="mt-3 divide-y divide-[var(--line)]">
+            {[
+              { k: "elder_confirmed", label: "Confirmed by elder", n: a.elderConfirmed },
+              { k: "witnessed", label: "Witnessed by caregiver", n: a.witnessed },
+              { k: "skipped", label: "Skipped", n: a.skipped },
+              { k: "missed", label: "Not confirmed", n: a.missed },
+              { k: "pending", label: "Not answered yet", n: a.pending },
+            ].map((r) => {
+              const c = CHIP[r.k];
+              return (
+                <div key={r.k} className="flex items-center justify-between gap-3 py-2">
+                  <dt className="flex items-center gap-2">
+                    <c.Icon size={18} aria-hidden="true" /> {r.label}
+                  </dt>
+                  <dd className="text-lg font-semibold tabular-nums">{r.n}</dd>
+                </div>
+              );
+            })}
+          </dl>
+          <p className="mt-3 rounded-lg bg-stone-50 p-3">
+            <span className="text-2xl font-semibold">
+              {a.elderConfirmationRate == null ? "No rate yet" : `${a.elderConfirmationRate}%`}
+            </span>
+            <span className="block text-sm text-[var(--muted)]">
+              {a.elderConfirmed} of {a.elderConfirmed + a.missed} doses confirmed by the elder
+            </span>
+          </p>
           <p className="mt-2 text-sm text-[var(--muted)]">
-            Rate = confirmed ÷ (confirmed + missed). Skips are her decision, not failures. A witness never counts as
-            taken.
+            How this is worked out: doses the older adult confirmed, divided by confirmed plus not confirmed in time.
+            Skipped doses are their decision and are left out. A witnessed dose never counts as taken.
           </p>
         </section>
         {role === "elder" && (
           <section className="panel">
-            <h2 className="text-xl font-semibold">I took it myself</h2>
+            <h2 className="text-xl font-semibold">Record another medicine</h2>
             <p className="text-sm text-[var(--muted)]">
-              Took something that is not on your list? Write it here so your family and doctor know.
+              For something you already took that is not on today&apos;s schedule, like a pain tablet. This does not add
+              it to your care plan.
             </p>
             <div className="mt-3 grid gap-2">
               <input
@@ -331,11 +349,11 @@ export function Today({
                         method: "POST",
                         body: JSON.stringify({ medicineName: med, dose, reason: why, generateCard: true }),
                       }),
-                    "Saved. A safety note was added under Safety.",
+                    "Saved. A safety note was added under Activity & safety.",
                   )
                 }
               >
-                Save and check safety
+                Save and check medicines
               </button>
             </div>
           </section>
@@ -344,7 +362,7 @@ export function Today({
           <section className="panel">
             <h2 className="text-xl font-semibold">Next appointment</h2>
             <p className="mt-2 text-lg">
-              <strong>{state.appointments[0].doctor}</strong> — {state.appointments[0].place}
+              <strong>{state.appointments[0].doctor}</strong>, {state.appointments[0].place}
             </p>
             <p className="text-[var(--muted)]">
               {dayLabel(state.appointments[0].scheduled_at)}, {time12(state.appointments[0].scheduled_at)} IST
