@@ -28,7 +28,20 @@ export async function POST(req: Request) {
   if ("error" in p) return p.error;
   const { code, hash } = newInviteCode();
   const expires = new Date(Date.now() + INVITE_HOURS * 3600_000).toISOString();
-  await insertInvite({ id: `inv-${randomUUID()}`, household_id: a.ctx.household.id, role: p.data.role, code_hash: hash, created_by: a.ctx.user.id, expires_at: expires });
+  await insertInvite({
+    id: `inv-${randomUUID()}`,
+    household_id: a.ctx.household.id,
+    role: p.data.role,
+    code_hash: hash,
+    created_by: a.ctx.user.id,
+    expires_at: expires,
+  });
   const origin = new URL(req.url).origin;
-  return NextResponse.json({ ok: true, code, role: p.data.role, expiresAt: expires, link: `${origin}/?invite=${code}` });
+  return NextResponse.json({
+    ok: true,
+    code,
+    role: p.data.role,
+    expiresAt: expires,
+    link: `${origin}/?invite=${code}`,
+  });
 }

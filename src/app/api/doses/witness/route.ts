@@ -20,6 +20,14 @@ export async function POST(req: Request) {
   const slot = await getDoseSlot(hh, p.data.doseSlotId);
   if (!slot) return NextResponse.json({ error: "Dose not found" }, { status: 404 });
   const id = `evt-${randomUUID()}`;
-  await insertEvent(hh, { id, type: "witnessed", actor_role: "caretaker", actor_name: a.ctx.user.name, medicine_id: slot.medicine_id, dose_slot_id: slot.id, payload: { note: "Witness only — not counted as taken" } });
+  await insertEvent(hh, {
+    id,
+    type: "witnessed",
+    actor_role: "caretaker",
+    actor_name: a.ctx.user.name,
+    medicine_id: slot.medicine_id,
+    dose_slot_id: slot.id,
+    payload: { note: "Witness only — not counted as taken" },
+  });
   return NextResponse.json({ ok: true, eventId: id, doseStatusUnchanged: slot.status });
 }

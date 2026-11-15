@@ -3,7 +3,15 @@ import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { hashInviteCode, requireUser, withSession } from "@/lib/auth";
-import { addMembershipStmt, batch, consumeInvite, getInviteByHash, getMembership, householdHasRole, insertEventStmt } from "@/lib/db";
+import {
+  addMembershipStmt,
+  batch,
+  consumeInvite,
+  getInviteByHash,
+  getMembership,
+  householdHasRole,
+  insertEventStmt,
+} from "@/lib/db";
 import { parseBody, pin } from "@/lib/validate";
 
 export const runtime = "nodejs";
@@ -29,8 +37,24 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "This invite code was just used" }, { status: 409 });
   }
   await batch([
-    addMembershipStmt({ id: `ms-${randomUUID()}`, user_id: u.user.id, household_id: inv.household_id, role: inv.role, pin_hash: bcrypt.hashSync(p.data.pin, 10) }),
-    insertEventStmt(inv.household_id, { id: `evt-${randomUUID()}`, type: "member_joined", actor_role: inv.role, actor_name: u.user.name, payload: { role: inv.role } }),
+    addMembershipStmt({
+      id: `ms-${randomUUID()}`,
+      user_id: u.user.id,
+      household_id: inv.household_id,
+      role: inv.role,
+      pin_hash: bcrypt.hashSync(p.data.pin, 10),
+    }),
+    insertEventStmt(inv.household_id, {
+      id: `evt-${randomUUID()}`,
+      type: "member_joined",
+      actor_role: inv.role,
+      actor_name: u.user.name,
+      payload: { role: inv.role },
+    }),
   ]);
-  return withSession(NextResponse.json({ ok: true, householdId: inv.household_id, role: inv.role }), u.user.id, inv.household_id);
+  return withSession(
+    NextResponse.json({ ok: true, householdId: inv.household_id, role: inv.role }),
+    u.user.id,
+    inv.household_id,
+  );
 }

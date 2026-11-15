@@ -10,7 +10,8 @@ export const dynamic = "force-dynamic";
 
 /** Sends a new code (60 s cooldown per account). The response does not reveal whether the email has an account. */
 export async function POST(req: Request) {
-  if (!rateLimit(`resend:${clientIp(req)}`, 10, 10 * 60_000)) return NextResponse.json({ error: "Too many requests. Please wait a few minutes." }, { status: 429 });
+  if (!rateLimit(`resend:${clientIp(req)}`, 10, 10 * 60_000))
+    return NextResponse.json({ error: "Too many requests. Please wait a few minutes." }, { status: 429 });
   const p = await parseBody(req, z.object({ email: z.string().trim().toLowerCase().email().max(120) }));
   if ("error" in p) return p.error;
   const user = await getUserByEmail(p.data.email);

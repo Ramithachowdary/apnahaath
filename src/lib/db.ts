@@ -158,7 +158,10 @@ async function makeDriver(): Promise<Driver> {
         return { rows: r.rows as Record<string, unknown>[], rowCount: r.rowCount ?? 0 };
       },
       async exec(text) {
-        for (const stmt of text.split(";").map((x) => x.replace(/--.*$/gm, "").trim()).filter(Boolean)) {
+        for (const stmt of text
+          .split(";")
+          .map((x) => x.replace(/--.*$/gm, "").trim())
+          .filter(Boolean)) {
           await sql.query(stmt);
         }
       },
@@ -218,15 +221,28 @@ export async function batch(stmts: Stmt[]): Promise<void> {
 
 /** Admin-only: wipe all data (schema stays). */
 export async function resetDatabase(): Promise<void> {
-  await (await db()).exec(
+  await (
+    await db()
+  ).exec(
     "TRUNCATE users, households, memberships, invites, medicines, dose_slots, appointments, care_events, decision_cards, reminder_outbox, proposals, auth_meta CASCADE",
   );
 }
 
 // ---------- users / households / memberships ----------
 export async function createUser(u: Omit<User, "created_at">) {
-  await run(`INSERT INTO users (id,name,email,password_hash,is_demo,created_at,email_verified,google_id) VALUES (?,?,?,?,?,?,?,?)`,
-    [u.id, u.name, u.email.toLowerCase(), u.password_hash, u.is_demo, formatIstIso(), u.email_verified ?? 1, u.google_id ?? null]);
+  await run(
+    `INSERT INTO users (id,name,email,password_hash,is_demo,created_at,email_verified,google_id) VALUES (?,?,?,?,?,?,?,?)`,
+    [
+      u.id,
+      u.name,
+      u.email.toLowerCase(),
+      u.password_hash,
+      u.is_demo,
+      formatIstIso(),
+      u.email_verified ?? 1,
+      u.google_id ?? null,
+    ],
+  );
 }
 export const createUserStmt = (u: Omit<User, "created_at">): Stmt => ({
   sql: `INSERT INTO users (id,name,email,password_hash,is_demo,created_at) VALUES (?,?,?,?,?,?)`,
@@ -239,7 +255,11 @@ export async function setUserGoogle(id: string, googleId: string) {
   await run(`UPDATE users SET google_id = ?, email_verified = 1 WHERE id = ?`, [googleId, id]);
 }
 export async function updateUnverifiedUser(id: string, name: string, passwordHash: string) {
-  await run(`UPDATE users SET name = ?, password_hash = ? WHERE id = ? AND email_verified = 0`, [name, passwordHash, id]);
+  await run(`UPDATE users SET name = ?, password_hash = ? WHERE id = ? AND email_verified = 0`, [
+    name,
+    passwordHash,
+    id,
+  ]);
 }
 export async function getUserByGoogleId(googleId: string) {
   return one<User>(`SELECT * FROM users WHERE google_id = ?`, [googleId]);
@@ -247,11 +267,16 @@ export async function getUserByGoogleId(googleId: string) {
 export type OtpRow = { user_id: string; code_hash: string; expires_at: number; attempts: number; last_sent_at: number };
 export async function getOtp(userId: string) {
   const r = await one<OtpRow>(`SELECT * FROM email_otps WHERE user_id = ?`, [userId]);
-  return r ? { ...r, expires_at: Number(r.expires_at), last_sent_at: Number(r.last_sent_at), attempts: Number(r.attempts) } : undefined;
+  return r
+    ? { ...r, expires_at: Number(r.expires_at), last_sent_at: Number(r.last_sent_at), attempts: Number(r.attempts) }
+    : undefined;
 }
 export async function upsertOtp(userId: string, codeHash: string, expiresAt: number, now: number) {
-  await run(`INSERT INTO email_otps (user_id,code_hash,expires_at,attempts,last_sent_at) VALUES (?,?,?,0,?)
-    ON CONFLICT(user_id) DO UPDATE SET code_hash = excluded.code_hash, expires_at = excluded.expires_at, attempts = 0, last_sent_at = excluded.last_sent_at`, [userId, codeHash, expiresAt, now]);
+  await run(
+    `INSERT INTO email_otps (user_id,code_hash,expires_at,attempts,last_sent_at) VALUES (?,?,?,0,?)
+    ON CONFLICT(user_id) DO UPDATE SET code_hash = excluded.code_hash, expires_at = excluded.expires_at, attempts = 0, last_sent_at = excluded.last_sent_at`,
+    [userId, codeHash, expiresAt, now],
+  );
 }
 export async function bumpOtpAttempts(userId: string) {
   await run(`UPDATE email_otps SET attempts = attempts + 1 WHERE user_id = ?`, [userId]);
@@ -267,12 +292,28 @@ export async function getUser(id: string) {
 }
 export const createHouseholdStmt = (h: Omit<Household, "created_at">): Stmt => ({
   sql: `INSERT INTO households (id,elder_name,elder_age,city,language,owner_user_id,is_demo,demo_credentials_json,created_at) VALUES (?,?,?,?,?,?,?,?,?)`,
-  args: [h.id, h.elder_name, h.elder_age, h.city, h.language, h.owner_user_id, h.is_demo, h.demo_credentials_json, formatIstIso()],
+  args: [
+    h.id,
+    h.elder_name,
+    h.elder_age,
+    h.city,
+    h.language,
+    h.owner_user_id,
+    h.is_demo,
+    h.demo_credentials_json,
+    formatIstIso(),
+  ],
 });
 export async function getHousehold(id: string) {
   return one<Household>(`SELECT * FROM households WHERE id = ?`, [id]);
 }
-export const addMembershipStmt = (m: { id: string; user_id: string; household_id: string; role: Role; pin_hash: string }): Stmt => ({
+export const addMembershipStmt = (m: {
+  id: string;
+  user_id: string;
+  household_id: string;
+  role: Role;
+  pin_hash: string;
+}): Stmt => ({
   sql: `INSERT INTO memberships (id,user_id,household_id,role,pin_hash,created_at) VALUES (?,?,?,?,?,?)`,
   args: [m.id, m.user_id, m.household_id, m.role, m.pin_hash, formatIstIso()],
 });
@@ -285,12 +326,16 @@ export async function getMembershipById(id: string) {
 export async function listUserHouseholds(userId: string) {
   return all<{ id: string; elder_name: string; city: string; is_demo: number; role: Role }>(
     `SELECT h.id, h.elder_name, h.city, h.is_demo, m.role FROM memberships m JOIN households h ON h.id = m.household_id
-     WHERE m.user_id = ? ORDER BY h.created_at DESC`, [userId]);
+     WHERE m.user_id = ? ORDER BY h.created_at DESC`,
+    [userId],
+  );
 }
 export async function listMembers(hh: string) {
   return all<Member & { is_demo: number }>(
     `SELECT u.id, u.name, u.email, u.is_demo, m.role FROM memberships m JOIN users u ON u.id = m.user_id
-     WHERE m.household_id = ? ORDER BY m.created_at`, [hh]);
+     WHERE m.household_id = ? ORDER BY m.created_at`,
+    [hh],
+  );
 }
 export async function householdHasRole(hh: string, role: Role) {
   return Boolean(await one(`SELECT 1 AS x FROM memberships WHERE household_id = ? AND role = ?`, [hh, role]));
@@ -300,44 +345,81 @@ export async function setMembershipLock(id: string, failed: number, until: strin
 }
 
 // ---------- invites ----------
-export async function insertInvite(i: { id: string; household_id: string; role: Role; code_hash: string; created_by: string; expires_at: string }) {
-  await run(`INSERT INTO invites (id,household_id,role,code_hash,created_by,expires_at,created_at) VALUES (?,?,?,?,?,?,?)`,
-    [i.id, i.household_id, i.role, i.code_hash, i.created_by, i.expires_at, formatIstIso()]);
+export async function insertInvite(i: {
+  id: string;
+  household_id: string;
+  role: Role;
+  code_hash: string;
+  created_by: string;
+  expires_at: string;
+}) {
+  await run(
+    `INSERT INTO invites (id,household_id,role,code_hash,created_by,expires_at,created_at) VALUES (?,?,?,?,?,?,?)`,
+    [i.id, i.household_id, i.role, i.code_hash, i.created_by, i.expires_at, formatIstIso()],
+  );
 }
 export async function getInviteByHash(hash: string) {
   return one<{ id: string; household_id: string; role: Role; expires_at: string; used_by: string | null }>(
-    `SELECT * FROM invites WHERE code_hash = ?`, [hash]);
+    `SELECT * FROM invites WHERE code_hash = ?`,
+    [hash],
+  );
 }
 /** Atomically mark used; false if already used. */
 export async function consumeInvite(id: string, userId: string) {
-  return (await run(`UPDATE invites SET used_by = ?, used_at = ? WHERE id = ? AND used_by IS NULL`, [userId, formatIstIso(), id])) === 1;
+  return (
+    (await run(`UPDATE invites SET used_by = ?, used_at = ? WHERE id = ? AND used_by IS NULL`, [
+      userId,
+      formatIstIso(),
+      id,
+    ])) === 1
+  );
 }
 export async function listInvites(hh: string) {
   return all<{ id: string; role: Role; expires_at: string; used_by: string | null; created_at: string }>(
-    `SELECT id, role, expires_at, used_by, created_at FROM invites WHERE household_id = ? ORDER BY created_at DESC LIMIT 20`, [hh]);
+    `SELECT id, role, expires_at, used_by, created_at FROM invites WHERE household_id = ? ORDER BY created_at DESC LIMIT 20`,
+    [hh],
+  );
 }
 
 // ---------- medicines / slots ----------
 export async function listMedicines(hh: string, activeOnly = false) {
-  return all<Medicine>(`SELECT * FROM medicines WHERE household_id = ? ${activeOnly ? "AND active = 1" : ""} ORDER BY schedule_time`, [hh]);
+  return all<Medicine>(
+    `SELECT * FROM medicines WHERE household_id = ? ${activeOnly ? "AND active = 1" : ""} ORDER BY schedule_time`,
+    [hh],
+  );
 }
 export async function getMedicine(hh: string, id: string) {
   return one<Medicine>(`SELECT * FROM medicines WHERE id = ? AND household_id = ?`, [id, hh]);
 }
 export const insertMedicineStmt = (m: Medicine): Stmt => ({
   sql: `INSERT INTO medicines (id,household_id,name,brand_hi,dose,schedule_time,instructions,color_band,active,notes) VALUES (?,?,?,?,?,?,?,?,?,?)`,
-  args: [m.id, m.household_id, m.name, m.brand_hi, m.dose, m.schedule_time, m.instructions, m.color_band, m.active, m.notes],
+  args: [
+    m.id,
+    m.household_id,
+    m.name,
+    m.brand_hi,
+    m.dose,
+    m.schedule_time,
+    m.instructions,
+    m.color_band,
+    m.active,
+    m.notes,
+  ],
 });
 export async function insertMedicine(m: Medicine) {
   await batch([insertMedicineStmt(m)]);
 }
 export async function setMedicineActive(hh: string, id: string, active: number) {
   await run(`UPDATE medicines SET active = ? WHERE id = ? AND household_id = ?`, [active, id, hh]);
-  if (!active) await run(`DELETE FROM dose_slots WHERE medicine_id = ? AND household_id = ? AND status = 'pending'`, [id, hh]);
+  if (!active)
+    await run(`DELETE FROM dose_slots WHERE medicine_id = ? AND household_id = ? AND status = 'pending'`, [id, hh]);
 }
 export async function updateMedicineSchedule(hh: string, id: string, t: string) {
   await run(`UPDATE medicines SET schedule_time = ? WHERE id = ? AND household_id = ?`, [t, id, hh]);
-  await run(`UPDATE dose_slots SET scheduled_at = ? WHERE medicine_id = ? AND household_id = ? AND status = 'pending'`, [istDateTimeOnToday(t), id, hh]);
+  await run(
+    `UPDATE dose_slots SET scheduled_at = ? WHERE medicine_id = ? AND household_id = ? AND status = 'pending'`,
+    [istDateTimeOnToday(t), id, hh],
+  );
 }
 export function slotIdFor(medId: string, day = todayIstDateString()) {
   return `${medId}-${day.replaceAll("-", "")}`;
@@ -346,45 +428,82 @@ export function slotIdFor(medId: string, day = todayIstDateString()) {
 export async function ensureTodaySlots(hh: string) {
   const meds = await listMedicines(hh, true);
   if (!meds.length) return;
-  await batch(meds.map((m) => ({
-    sql: `INSERT INTO dose_slots (id,household_id,medicine_id,scheduled_at,status,skip_reason) VALUES (?,?,?,?, 'pending', NULL) ON CONFLICT (id) DO NOTHING`,
-    args: [slotIdFor(m.id), hh, m.id, istDateTimeOnToday(m.schedule_time)],
-  })));
+  await batch(
+    meds.map((m) => ({
+      sql: `INSERT INTO dose_slots (id,household_id,medicine_id,scheduled_at,status,skip_reason) VALUES (?,?,?,?, 'pending', NULL) ON CONFLICT (id) DO NOTHING`,
+      args: [slotIdFor(m.id), hh, m.id, istDateTimeOnToday(m.schedule_time)],
+    })),
+  );
 }
 export type SlotRow = DoseSlot & { medicine_name: string; brand_hi: string; color_band: string; instructions: string };
 export async function listDoseSlots(hh: string, day = todayIstDateString()) {
   return all<SlotRow>(
     `SELECT d.*, m.name as medicine_name, m.brand_hi, m.color_band, m.dose as med_dose, m.instructions
      FROM dose_slots d JOIN medicines m ON m.id = d.medicine_id
-     WHERE d.household_id = ? AND substr(d.scheduled_at,1,10) = ? ORDER BY d.scheduled_at`, [hh, day]);
+     WHERE d.household_id = ? AND substr(d.scheduled_at,1,10) = ? ORDER BY d.scheduled_at`,
+    [hh, day],
+  );
 }
 export async function listRecentSlots(hh: string, sinceDay: string) {
   return all<SlotRow>(
     `SELECT d.*, m.name as medicine_name, m.brand_hi, m.color_band, m.instructions
      FROM dose_slots d JOIN medicines m ON m.id = d.medicine_id
-     WHERE d.household_id = ? AND substr(d.scheduled_at,1,10) >= ? ORDER BY d.scheduled_at DESC`, [hh, sinceDay]);
+     WHERE d.household_id = ? AND substr(d.scheduled_at,1,10) >= ? ORDER BY d.scheduled_at DESC`,
+    [hh, sinceDay],
+  );
 }
 export async function getDoseSlot(hh: string, id: string) {
   return one<DoseSlot>(`SELECT * FROM dose_slots WHERE id = ? AND household_id = ?`, [id, hh]);
 }
-export async function updateDoseSlotStatus(hh: string, id: string, status: DoseSlot["status"], skipReason: string | null = null) {
-  await run(`UPDATE dose_slots SET status = ?, skip_reason = ? WHERE id = ? AND household_id = ?`, [status, skipReason, id, hh]);
+export async function updateDoseSlotStatus(
+  hh: string,
+  id: string,
+  status: DoseSlot["status"],
+  skipReason: string | null = null,
+) {
+  await run(`UPDATE dose_slots SET status = ?, skip_reason = ? WHERE id = ? AND household_id = ?`, [
+    status,
+    skipReason,
+    id,
+    hh,
+  ]);
 }
 
 // ---------- events ----------
 export type EventInput = {
-  id: string; type: string; actor_role: string; actor_name: string;
-  medicine_id?: string | null; dose_slot_id?: string | null; appointment_id?: string | null; payload: unknown; created_at?: string;
+  id: string;
+  type: string;
+  actor_role: string;
+  actor_name: string;
+  medicine_id?: string | null;
+  dose_slot_id?: string | null;
+  appointment_id?: string | null;
+  payload: unknown;
+  created_at?: string;
 };
 export const insertEventStmt = (hh: string, e: EventInput): Stmt => ({
   sql: `INSERT INTO care_events (id,household_id,type,actor_role,actor_name,medicine_id,dose_slot_id,appointment_id,payload_json,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)`,
-  args: [e.id, hh, e.type, e.actor_role, e.actor_name, e.medicine_id ?? null, e.dose_slot_id ?? null, e.appointment_id ?? null, JSON.stringify(e.payload), e.created_at ?? formatIstIso()],
+  args: [
+    e.id,
+    hh,
+    e.type,
+    e.actor_role,
+    e.actor_name,
+    e.medicine_id ?? null,
+    e.dose_slot_id ?? null,
+    e.appointment_id ?? null,
+    JSON.stringify(e.payload),
+    e.created_at ?? formatIstIso(),
+  ],
 });
 export async function insertEvent(hh: string, e: EventInput) {
   await batch([insertEventStmt(hh, e)]);
 }
 export async function listEvents(hh: string, limit = 50) {
-  return all<CareEvent>(`SELECT * FROM care_events WHERE household_id = ? ORDER BY created_at DESC LIMIT ?`, [hh, limit]);
+  return all<CareEvent>(`SELECT * FROM care_events WHERE household_id = ? ORDER BY created_at DESC LIMIT ?`, [
+    hh,
+    limit,
+  ]);
 }
 
 // ---------- appointments ----------
@@ -413,7 +532,21 @@ export async function getDecisionCard(hh: string, id: string) {
 }
 export const insertDecisionCardStmt = (c: DecisionCard): Stmt => ({
   sql: `INSERT INTO decision_cards (id,household_id,source_event_id,severity,title,elder_line_hi,caretaker_line_hi,family_line_en,tell_doctor,disclaimer,emergency_line,cached,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-  args: [c.id, c.household_id, c.source_event_id, c.severity, c.title, c.elder_line_hi, c.caretaker_line_hi, c.family_line_en, c.tell_doctor, c.disclaimer, c.emergency_line, c.cached, c.created_at],
+  args: [
+    c.id,
+    c.household_id,
+    c.source_event_id,
+    c.severity,
+    c.title,
+    c.elder_line_hi,
+    c.caretaker_line_hi,
+    c.family_line_en,
+    c.tell_doctor,
+    c.disclaimer,
+    c.emergency_line,
+    c.cached,
+    c.created_at,
+  ],
 });
 export async function insertDecisionCard(c: DecisionCard) {
   await batch([insertDecisionCardStmt(c)]);
@@ -427,17 +560,38 @@ export async function listOutbox(hh: string) {
 export async function insertOutbox(r: ReminderOutbox): Promise<boolean> {
   const n = await run(
     `INSERT INTO reminder_outbox (id,household_id,kind,to_email,subject,body,idempotency_key,status,created_at,sent_at,error) VALUES (?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING`,
-    [r.id, r.household_id, r.kind, r.to_email, r.subject, r.body, r.idempotency_key, r.status, r.created_at, r.sent_at, r.error]);
+    [
+      r.id,
+      r.household_id,
+      r.kind,
+      r.to_email,
+      r.subject,
+      r.body,
+      r.idempotency_key,
+      r.status,
+      r.created_at,
+      r.sent_at,
+      r.error,
+    ],
+  );
   return n === 1;
 }
 export async function updateOutboxStatus(id: string, status: ReminderOutbox["status"], error: string | null = null) {
-  await run(`UPDATE reminder_outbox SET status = ?, sent_at = ?, error = ? WHERE id = ?`,
-    [status, status === "sent" || status === "mock" ? formatIstIso() : null, error, id]);
+  await run(`UPDATE reminder_outbox SET status = ?, sent_at = ?, error = ? WHERE id = ?`, [
+    status,
+    status === "sent" || status === "mock" ? formatIstIso() : null,
+    error,
+    id,
+  ]);
 }
 
 // ---------- adherence ----------
 export async function getAdherenceStats(hh: string): Promise<AdherenceStats> {
-  let elderConfirmed = 0, skipped = 0, missed = 0, pending = 0, dueOrPast = 0;
+  let elderConfirmed = 0,
+    skipped = 0,
+    missed = 0,
+    pending = 0,
+    dueOrPast = 0;
   for (const s of await listDoseSlots(hh)) {
     const age = minutesSince(s.scheduled_at);
     if (age >= 0) dueOrPast += 1;
@@ -448,7 +602,9 @@ export async function getAdherenceStats(hh: string): Promise<AdherenceStats> {
     else pending += 1;
   }
   const w = await one<{ c: number }>(
-    `SELECT COUNT(*)::int AS c FROM care_events WHERE household_id = ? AND type = 'witnessed' AND substr(created_at,1,10) = ?`, [hh, todayIstDateString()]);
+    `SELECT COUNT(*)::int AS c FROM care_events WHERE household_id = ? AND type = 'witnessed' AND substr(created_at,1,10) = ?`,
+    [hh, todayIstDateString()],
+  );
   // Skips are an elder decision, not a failure: excluded from the denominator.
   const denom = elderConfirmed + missed;
   const elderConfirmationRate = denom === 0 ? null : Math.round((elderConfirmed / denom) * 1000) / 10;
@@ -459,9 +615,14 @@ export async function getAdherenceStats(hh: string): Promise<AdherenceStats> {
 export async function listProposals(hh: string) {
   return all<Proposal>(`SELECT * FROM proposals WHERE household_id = ? ORDER BY created_at DESC`, [hh]);
 }
-export async function insertProposal(hh: string, p: { id: string; kind: string; medicine_id: string | null; payload: unknown; created_by: string }) {
-  await run(`INSERT INTO proposals (id,household_id,kind,medicine_id,payload_json,status,created_by,created_at) VALUES (?,?,?,?,?, 'pending', ?, ?)`,
-    [p.id, hh, p.kind, p.medicine_id, JSON.stringify(p.payload), p.created_by, formatIstIso()]);
+export async function insertProposal(
+  hh: string,
+  p: { id: string; kind: string; medicine_id: string | null; payload: unknown; created_by: string },
+) {
+  await run(
+    `INSERT INTO proposals (id,household_id,kind,medicine_id,payload_json,status,created_by,created_at) VALUES (?,?,?,?,?, 'pending', ?, ?)`,
+    [p.id, hh, p.kind, p.medicine_id, JSON.stringify(p.payload), p.created_by, formatIstIso()],
+  );
 }
 export async function updateProposalStatus(hh: string, id: string, status: string) {
   await run(`UPDATE proposals SET status = ? WHERE id = ? AND household_id = ?`, [status, id, hh]);
@@ -475,5 +636,8 @@ export async function getAuthMeta(key: string): Promise<string> {
   return (await one<{ value: string }>(`SELECT value FROM auth_meta WHERE key = ?`, [key]))?.value ?? "";
 }
 export async function setAuthMeta(key: string, value: string) {
-  await run(`INSERT INTO auth_meta (key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`, [key, value]);
+  await run(`INSERT INTO auth_meta (key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`, [
+    key,
+    value,
+  ]);
 }

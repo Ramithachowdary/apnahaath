@@ -23,6 +23,14 @@ export async function POST(req: Request) {
   if (slot.status === "elder_confirmed") return NextResponse.json({ error: "Already taken" }, { status: 409 });
   await updateDoseSlotStatus(hh, slot.id, "elder_confirmed", null);
   const id = `evt-${randomUUID()}`;
-  await insertEvent(hh, { id, type: "elder_confirmed", actor_role: "elder", actor_name: a.ctx.user.name, medicine_id: slot.medicine_id, dose_slot_id: slot.id, payload: {} });
+  await insertEvent(hh, {
+    id,
+    type: "elder_confirmed",
+    actor_role: "elder",
+    actor_name: a.ctx.user.name,
+    medicine_id: slot.medicine_id,
+    dose_slot_id: slot.id,
+    payload: {},
+  });
   return NextResponse.json({ ok: true, eventId: id });
 }

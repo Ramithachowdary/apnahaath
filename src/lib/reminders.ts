@@ -13,6 +13,7 @@ import {
 import { createDoseToken } from "./doselink";
 import { deliverOutboxRow } from "./email";
 import { SITE_URL } from "./site";
+import { translateCareMessage } from "./gemini";
 import { formatIstIso, formatTime12, minutesSince } from "./time";
 import type { ReminderOutbox, Role } from "./types";
 
@@ -20,12 +21,16 @@ export async function familyRecipients(hh: string): Promise<string[]> {
   return (await recipients(hh, false)).map((r) => r.email);
 }
 
-export interface Recipient { email: string; uid: string | null; role: Role | null }
+export interface Recipient {
+  email: string;
+  uid: string | null;
+  role: Role | null;
+}
 
 /** Who gets reminder emails. Upcoming-dose emails also go to the elder (with her personal one-tap link). */
 export async function recipients(hh: string, includeElder: boolean): Promise<Recipient[]> {
   return (await listMembers(hh))
-    .filter((m) => (m.role === "family" || (includeElder && m.role === "elder")))
+    .filter((m) => m.role === "family" || (includeElder && m.role === "elder"))
     .map((m) => ({ email: m.email, uid: m.id, role: m.role }));
 }
 
@@ -38,7 +43,9 @@ export function doseLinkFooter(hh: string, slotId: string, r: Recipient): string
     : `Saw the dose taken? Tap to record yourself as a witness (does not mark it taken; works once, for 6 hours):\n${url}`;
 }
 
-export async function runMorningCheck(hh: string): Promise<{ queued: number; results: Array<{ id: string; status: string }> }> {
+export async function runMorningCheck(
+  hh: string,
+): Promise<{ queued: number; results: Array<{ id: string; status: string }> }> {
   await ensureTodaySlots(hh);
   const household = await getHousehold(hh);
   const elder = household?.elder_name ?? "your elder";
@@ -48,8 +55,10 @@ export async function runMorningCheck(hh: string): Promise<{ queued: number; res
   const results: Array<{ id: string; status: string }> = [];
 
   async function queue(kind: ReminderOutbox["kind"], key: string, subject: string, lines: string[], slotId?: string) {
+    const language = household?.language ?? "English";
     for (const r of slotId ? withElder : family) {
       const email = r.email;
+      const careText = r.role === "elder" ? await translateCareMessage(lines.join("\n"), language) : lines.join("\n");
       const row: ReminderOutbox = {
         id: `out-${randomUUID()}`,
         household_id: hh,
@@ -57,7 +66,13 @@ export async function runMorningCheck(hh: string): Promise<{ queued: number; res
         to_email: email,
         // Subjects never contain drug names or diagnoses
         subject,
-        body: [...lines, ...(slotId && r.uid ? ["", "(A personal one-tap link was included in this email only.)"] : []), "", MEDICAL_DISCLAIMER, EMERGENCY_LINE].join("\n"),
+        body: [
+          careText,
+          ...(slotId && r.uid ? ["", "(A personal one-tap link was included in this email only.)"] : []),
+          "",
+          MEDICAL_DISCLAIMER,
+          EMERGENCY_LINE,
+        ].join("\n"),
         idempotency_key: `${hh}:${key}:${email}`,
         status: "queued",
         created_at: formatIstIso(),
@@ -77,16 +92,27 @@ export async function runMorningCheck(hh: string): Promise<{ queued: number; res
     if (slot.status !== "pending") continue;
     const age = minutesSince(slot.scheduled_at);
     if (age >= -60 && age < 0) {
-      await queue("upcoming", `upcoming:${slot.id}`, "ApnaHaath: a dose is coming up", [
-        `${elder} has ${slot.medicine_name} due at ${formatTime12(slot.scheduled_at)} IST.`,
-        "Only she can mark it as taken. A caretaker can only witness.",
-      ], slot.id);
+      await queue(
+        "upcoming",
+        `upcoming:${slot.id}`,
+        "ApnaHaath: a dose is coming up",
+        [
+          `${elder} has ${slot.medicine_name} due at ${formatTime12(slot.scheduled_at)} IST.`,
+          "Only she can mark it as taken. A caretaker can only witness.",
+        ],
+        slot.id,
+      );
     }
     if (age > MISS_GRACE_MINUTES) {
       await updateDoseSlotStatus(hh, slot.id, "missed", null);
       await insertEvent(hh, {
-        id: `evt-${randomUUID()}`, type: "missed", actor_role: "system", actor_name: "System",
-        medicine_id: slot.medicine_id, dose_slot_id: slot.id, payload: { grace_minutes: MISS_GRACE_MINUTES },
+        id: `evt-${randomUUID()}`,
+        type: "missed",
+        actor_role: "system",
+        actor_name: "System",
+        medicine_id: slot.medicine_id,
+        dose_slot_id: slot.id,
+        payload: { grace_minutes: MISS_GRACE_MINUTES },
       });
       await queue("missed", `missed:${slot.id}`, "ApnaHaath: a dose was not confirmed", [
         `${slot.medicine_name} (due ${formatTime12(slot.scheduled_at)} IST) has no answer from ${elder} after ${MISS_GRACE_MINUTES} minutes.`,

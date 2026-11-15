@@ -40,15 +40,12 @@ async function callGeminiModel(key: string, model: string, body: unknown): Promi
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), 15_000);
   try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-goog-api-key": key },
-        body: JSON.stringify(body),
-        signal: ctrl.signal,
-      },
-    );
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+      body: JSON.stringify(body),
+      signal: ctrl.signal,
+    });
     if (!res.ok) throw new Error(`Gemini HTTP ${res.status}`);
     const data = (await res.json()) as {
       candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
@@ -60,7 +57,10 @@ async function callGeminiModel(key: string, model: string, body: unknown): Promi
 }
 
 function stripFences(text: string): string {
-  return text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+  return text
+    .trim()
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/, "");
 }
 
 export type GeneratedCard = z.infer<typeof CardSchema>;
@@ -97,9 +97,7 @@ export function rejectsMutation(text: string): boolean {
   return FORBIDDEN.some((r) => r.test(scrubbed));
 }
 
-export function validateWarnOnlyCard(
-  raw: unknown,
-): { ok: true; card: GeneratedCard } | { ok: false; error: string } {
+export function validateWarnOnlyCard(raw: unknown): { ok: true; card: GeneratedCard } | { ok: false; error: string } {
   const parsed = CardSchema.safeParse(raw);
   if (!parsed.success) {
     return { ok: false, error: parsed.error.message };
@@ -150,21 +148,20 @@ export async function generateDecisionCard(input: {
   const involvesBrufen = /brufen|ibuprofen/.test(hint) || /brufen/i.test(input.context);
 
   const genericOffline = (why: string): DecisionCard => ({
-        id: `card-${randomUUID()}`,
-        household_id: input.hh,
-        source_event_id: input.sourceEventId,
-        severity: "info" as const,
-        title: "Care note (offline)",
-        elder_line_hi:
-          "This note was made without AI. None of your medicines were changed. Ask your doctor if you have questions.",
-        caretaker_line_hi:
-          "Follow Kamla ji's own record. Only she can mark a dose as taken.",
-        family_line_en: `Safety note (made without AI) — ${why}. No prescription changes.`,
-        tell_doctor: "Review the week's ApnaHaath event log.",
-        disclaimer: MEDICAL_DISCLAIMER,
-        emergency_line: EMERGENCY_LINE,
-        cached: 1,
-        created_at: formatIstIso(),
+    id: `card-${randomUUID()}`,
+    household_id: input.hh,
+    source_event_id: input.sourceEventId,
+    severity: "info" as const,
+    title: "Care note (offline)",
+    elder_line_hi:
+      "This note was made without AI. None of your medicines were changed. Ask your doctor if you have questions.",
+    caretaker_line_hi: "Follow Kamla ji's own record. Only she can mark a dose as taken.",
+    family_line_en: `Safety note (made without AI) — ${why}. No prescription changes.`,
+    tell_doctor: "Review the week's ApnaHaath event log.",
+    disclaimer: MEDICAL_DISCLAIMER,
+    emergency_line: EMERGENCY_LINE,
+    cached: 1,
+    created_at: formatIstIso(),
   });
 
   if (!key) {
@@ -240,8 +237,7 @@ Rules:
 export async function generateDoctorBrief(hh: string, elderName: string): Promise<string> {
   const events = await listEvents(hh, 30);
   const lines = events.map(
-    (e) =>
-      `- ${e.created_at}: ${e.type} by ${e.actor_name}${e.medicine_id ? ` (${e.medicine_id})` : ""}`,
+    (e) => `- ${e.created_at}: ${e.type} by ${e.actor_name}${e.medicine_id ? ` (${e.medicine_id})` : ""}`,
   );
   const base = [
     `Doctor brief — ${elderName} (ApnaHaath care log)`,
@@ -278,5 +274,39 @@ export async function generateDoctorBrief(hh: string, elderName: string): Promis
     return `${clean}\n\n${EMERGENCY_LINE}\n${MEDICAL_DISCLAIMER}`;
   } catch {
     return base;
+  }
+}
+
+/** Translate an elder-facing care/reminder message into the circle's preferred language.
+ *  English and empty language skip the API. Failures, empty output, or a dose-change
+ *  suggestion fall back to the original text. */
+export async function translateCareMessage(text: string, language: string): Promise<string> {
+  const original = text.trim();
+  const lang = (language || "English").trim();
+  if (!original || /^english$/i.test(lang)) return text;
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) return text;
+  try {
+    const raw = await callGemini(key, {
+      contents: [
+        {
+          parts: [
+            {
+              text:
+                `Translate the following care reminder into ${lang}. ` +
+                "Keep names, medicine names, times and numbers unchanged. " +
+                "Do not add medical advice. Do not suggest starting, stopping or changing any dose. " +
+                "Return only the translation, with the same line breaks.\n\n" +
+                original,
+            },
+          ],
+        },
+      ],
+    });
+    const clean = (raw || "").trim();
+    if (!clean || rejectsMutation(clean)) return text;
+    return clean;
+  } catch {
+    return text;
   }
 }

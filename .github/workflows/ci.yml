@@ -15,5 +15,17 @@ jobs:
           node-version: "22"
           cache: npm
       - run: npm ci
-      - run: npm test
+      - run: npm run format:check
+      - run: npm run lint
+      - name: Typecheck
+        run: |
+          mkdir -p .next/types
+          if [ ! -f next-env.d.ts ]; then
+            printf '%s\n' '/// <reference types="next" />' '/// <reference types="next/image-types/global" />' '/// <reference path="./.next/types/routes.d.ts" />' > next-env.d.ts
+          fi
+          if [ ! -f .next/types/routes.d.ts ]; then
+            printf '%s\n' 'export type AppRoutes = string;' 'export type RedirectRoutes = string;' 'export type RewriteRoutes = string;' 'export type Routes = AppRoutes;' > .next/types/routes.d.ts
+          fi
+          npm run typecheck
+      - run: npm run test:coverage
       - run: npm run build

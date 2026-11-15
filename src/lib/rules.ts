@@ -21,7 +21,8 @@ export async function checkThyronormShelcalGap(
   if (Math.abs(toMin(proposed.scheduleTime) - toMin(other.schedule_time)) < 4 * 60) {
     return {
       ok: false,
-      message_en: "Keep at least 4 hours between Thyronorm and Shelcal. This is a fixed rule in the app code, not an AI suggestion.",
+      message_en:
+        "Keep at least 4 hours between Thyronorm and Shelcal. This is a fixed rule in the app code, not an AI suggestion.",
     };
   }
   return { ok: true };

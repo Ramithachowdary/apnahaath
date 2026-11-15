@@ -38,18 +38,34 @@ export async function computeWeekStats(hh: string): Promise<WeekStats> {
   const events = (await listEvents(hh, 500)).filter((e) => e.created_at.slice(0, 10) >= from);
   const per = new Map<string, { name: string; confirmed: number; skipped: number; missed: number }>();
   const skipReasons: Record<string, number> = {};
-  let confirmed = 0, skipped = 0, missed = 0, pending = 0;
+  let confirmed = 0,
+    skipped = 0,
+    missed = 0,
+    pending = 0;
   for (const s of slots) {
     const m = per.get(s.medicine_name) ?? { name: s.medicine_name, confirmed: 0, skipped: 0, missed: 0 };
-    if (s.status === "elder_confirmed") { confirmed++; m.confirmed++; }
-    else if (s.status === "skipped") { skipped++; m.skipped++; const r = s.skip_reason || "No reason"; skipReasons[r] = (skipReasons[r] ?? 0) + 1; }
-    else if (s.status === "missed") { missed++; m.missed++; }
-    else pending++;
+    if (s.status === "elder_confirmed") {
+      confirmed++;
+      m.confirmed++;
+    } else if (s.status === "skipped") {
+      skipped++;
+      m.skipped++;
+      const r = s.skip_reason || "No reason";
+      skipReasons[r] = (skipReasons[r] ?? 0) + 1;
+    } else if (s.status === "missed") {
+      missed++;
+      m.missed++;
+    } else pending++;
     per.set(s.medicine_name, m);
   }
   const perMedicine = [...per.values()].sort((a, b) => b.missed - a.missed);
   return {
-    from, to, confirmed, skipped, missed, pending,
+    from,
+    to,
+    confirmed,
+    skipped,
+    missed,
+    pending,
     witnessed: events.filter((e) => e.type === "witnessed").length,
     selfAdded: events.filter((e) => e.type === "self_added").length,
     rate: confirmed + missed > 0 ? Math.round((confirmed / (confirmed + missed)) * 100) : null,
@@ -59,36 +75,55 @@ export async function computeWeekStats(hh: string): Promise<WeekStats> {
   };
 }
 
-export function validateWeeklySummary(raw: unknown): { ok: true; summary: WeeklySummary } | { ok: false; error: string } {
+export function validateWeeklySummary(
+  raw: unknown,
+): { ok: true; summary: WeeklySummary } | { ok: false; error: string } {
   const p = SummarySchema.safeParse(raw);
   if (!p.success) return { ok: false, error: p.error.message };
-  if (rejectsMutation(`${p.data.elder} ${p.data.caretaker} ${p.data.family}`)) return { ok: false, error: "Summary implies a dose/prescription change" };
+  if (rejectsMutation(`${p.data.elder} ${p.data.caretaker} ${p.data.family}`))
+    return { ok: false, error: "Summary implies a dose/prescription change" };
   return { ok: true, summary: p.data };
 }
 
 export function templateWeeklySummary(st: WeekStats, elderName: string): WeeklySummary {
   const first = elderName.split(" ")[0];
   const rate = st.rate === null ? "not enough doses yet" : `${st.rate}%`;
-  const reasons = Object.entries(st.skipReasons).map(([r, n]) => `${r} (${n})`).join(", ") || "none";
+  const reasons =
+    Object.entries(st.skipReasons)
+      .map(([r, n]) => `${r} (${n})`)
+      .join(", ") || "none";
   return {
     elder: `${first} ji, this week you confirmed ${st.confirmed} doses yourself. Thank you. If anything feels wrong, tell your family or doctor.`,
     caretaker: [
       `This week: ${st.confirmed} confirmed by ${first}, ${st.witnessed} witnessed by you, ${st.missed} not confirmed.`,
-      st.mostMissed ? `Gently remind ${first} around the ${st.mostMissed} time and let her mark it herself.` : `Keep reminding ${first} at each dose time and let her mark it herself.`,
+      st.mostMissed
+        ? `Gently remind ${first} around the ${st.mostMissed} time and let her mark it herself.`
+        : `Keep reminding ${first} at each dose time and let her mark it herself.`,
     ].join("\n"),
     family: [
       `Week ${st.from} to ${st.to} (IST)`,
       `Elder-confirmation rate: ${rate} — ${st.confirmed} confirmed, ${st.missed} missed, ${st.skipped} skipped with a reason, ${st.witnessed} witnessed by the caretaker.`,
       `Skip reasons: ${reasons}.`,
-      st.selfAdded ? `${first} added ${st.selfAdded} medicine(s) herself — check the safety notes.` : `No self-added medicines this week.`,
-      st.mostMissed ? `Most missed: ${st.mostMissed}. Worth mentioning at the next doctor visit.` : `No pattern of missed doses.`,
+      st.selfAdded
+        ? `${first} added ${st.selfAdded} medicine(s) herself — check the safety notes.`
+        : `No self-added medicines this week.`,
+      st.mostMissed
+        ? `Most missed: ${st.mostMissed}. Worth mentioning at the next doctor visit.`
+        : `No pattern of missed doses.`,
       "No prescription or dose was changed by ApnaHaath.",
     ].join("\n"),
   };
 }
 
-export async function generateWeeklySummary(hh: string, elderName: string): Promise<{
-  stats: WeekStats; summary: WeeklySummary; source: "adaption" | "template"; disclaimer: string; error?: string;
+export async function generateWeeklySummary(
+  hh: string,
+  elderName: string,
+): Promise<{
+  stats: WeekStats;
+  summary: WeeklySummary;
+  source: "adaption" | "template";
+  disclaimer: string;
+  error?: string;
 }> {
   const stats = await computeWeekStats(hh);
   const fallback = templateWeeklySummary(stats, elderName);
@@ -105,6 +140,12 @@ export async function generateWeeklySummary(hh: string, elderName: string): Prom
     if (!v.ok) throw new Error(v.error);
     return { stats, summary: v.summary, source: "adaption", disclaimer: MEDICAL_DISCLAIMER };
   } catch (e) {
-    return { stats, summary: fallback, source: "template", disclaimer: MEDICAL_DISCLAIMER, error: e instanceof Error ? e.message : "Adaption failed" };
+    return {
+      stats,
+      summary: fallback,
+      source: "template",
+      disclaimer: MEDICAL_DISCLAIMER,
+      error: e instanceof Error ? e.message : "Adaption failed",
+    };
   }
 }

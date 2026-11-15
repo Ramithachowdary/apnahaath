@@ -29,15 +29,23 @@ function key(): string {
 }
 const sign = (p: string) => createHmac("sha256", key()).update(p).digest("base64url");
 
-export function createDoseToken(p: Omit<DoseLinkPayload, "v" | "exp" | "n">, ttlS = DOSE_LINK_TTL_S, nowS = Date.now() / 1000): string {
+export function createDoseToken(
+  p: Omit<DoseLinkPayload, "v" | "exp" | "n">,
+  ttlS = DOSE_LINK_TTL_S,
+  nowS = Date.now() / 1000,
+): string {
   const payload: DoseLinkPayload = { v: 1, ...p, exp: Math.floor(nowS + ttlS), n: randomUUID() };
   const b = Buffer.from(JSON.stringify(payload)).toString("base64url");
   return `${b}.${sign(b)}`;
 }
 
-export function verifyDoseToken(token: string, nowS = Date.now() / 1000): { ok: true; payload: DoseLinkPayload } | { ok: false; reason: string } {
+export function verifyDoseToken(
+  token: string,
+  nowS = Date.now() / 1000,
+): { ok: true; payload: DoseLinkPayload } | { ok: false; reason: string } {
   const parts = (token || "").split(".");
-  if (parts.length !== 2 || !parts[0] || !parts[1] || token.length > 1200) return { ok: false, reason: "This link is not valid." };
+  if (parts.length !== 2 || !parts[0] || !parts[1] || token.length > 1200)
+    return { ok: false, reason: "This link is not valid." };
   const a = Buffer.from(parts[1]);
   const b = Buffer.from(sign(parts[0]));
   if (a.length !== b.length || !timingSafeEqual(a, b)) return { ok: false, reason: "This link is not valid." };
@@ -62,22 +70,44 @@ export async function redeemDoseToken(token: string, nowS = Date.now() / 1000): 
   const p = v.payload;
   const membership = await getMembership(p.uid, p.hid);
   // The role is re-checked from the database: a link stops working if the member's role changed.
-  if (!membership || membership.role !== p.role) return { ok: false, status: 403, reason: "This link is no longer valid for this care circle." };
+  if (!membership || membership.role !== p.role)
+    return { ok: false, status: 403, reason: "This link is no longer valid for this care circle." };
   const slot = await getDoseSlot(p.hid, p.sid);
   if (!slot) return { ok: false, status: 404, reason: "This dose was not found." };
-  if (p.role === "elder" && slot.status === "skipped") return { ok: false, status: 409, reason: "This dose was already marked as skipped." };
-  if (p.role === "elder" && slot.status === "elder_confirmed") return { ok: false, status: 409, reason: "This dose was already marked as taken." };
+  if (p.role === "elder" && slot.status === "skipped")
+    return { ok: false, status: 409, reason: "This dose was already marked as skipped." };
+  if (p.role === "elder" && slot.status === "elder_confirmed")
+    return { ok: false, status: 409, reason: "This dose was already marked as taken." };
   const jti = createHash("sha256").update(token).digest("hex");
-  const claimed = await query(`INSERT INTO auth_meta (key,value) VALUES (?,?) ON CONFLICT(key) DO NOTHING`, [`doselink:${jti}`, String(Math.floor(nowS))]);
+  const claimed = await query(`INSERT INTO auth_meta (key,value) VALUES (?,?) ON CONFLICT(key) DO NOTHING`, [
+    `doselink:${jti}`,
+    String(Math.floor(nowS)),
+  ]);
   if (claimed.rowCount === 0) return { ok: false, status: 409, reason: "This link was already used." };
   const user = await getUser(p.uid);
   const medicine = (await getMedicine(p.hid, slot.medicine_id))?.name ?? "medicine";
   const name = user?.name ?? "Member";
   if (p.role === "elder") {
     await updateDoseSlotStatus(p.hid, slot.id, "elder_confirmed", null);
-    await insertEvent(p.hid, { id: `evt-${randomUUID()}`, type: "elder_confirmed", actor_role: "elder", actor_name: name, medicine_id: slot.medicine_id, dose_slot_id: slot.id, payload: { via: "email_link" } });
+    await insertEvent(p.hid, {
+      id: `evt-${randomUUID()}`,
+      type: "elder_confirmed",
+      actor_role: "elder",
+      actor_name: name,
+      medicine_id: slot.medicine_id,
+      dose_slot_id: slot.id,
+      payload: { via: "email_link" },
+    });
     return { ok: true, outcome: "elder_confirmed", medicine };
   }
-  await insertEvent(p.hid, { id: `evt-${randomUUID()}`, type: "witnessed", actor_role: p.role, actor_name: name, medicine_id: slot.medicine_id, dose_slot_id: slot.id, payload: { via: "email_link", note: "Witness only — not counted as taken" } });
+  await insertEvent(p.hid, {
+    id: `evt-${randomUUID()}`,
+    type: "witnessed",
+    actor_role: p.role,
+    actor_name: name,
+    medicine_id: slot.medicine_id,
+    dose_slot_id: slot.id,
+    payload: { via: "email_link", note: "Witness only — not counted as taken" },
+  });
   return { ok: true, outcome: "witnessed", medicine };
 }

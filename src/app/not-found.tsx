@@ -9,9 +9,13 @@ export default function NotFound() {
       <h1 className="mt-4 text-4xl font-semibold md:text-5xl">This page is not in the log.</h1>
       <p className="mt-4 text-lg text-[var(--muted)]">The link may be old or mistyped. Your care circle is safe.</p>
       <div className="mt-8 flex flex-wrap gap-3">
-        <Link href="/" className="btn-primary">Go to ApnaHaath</Link>
+        <Link href="/" className="btn-primary">
+          Go to ApnaHaath
+        </Link>
       </div>
-      <p className="mt-12 text-sm font-semibold text-[var(--danger)]">Emergency: call 108 or go to the nearest hospital.</p>
+      <p className="mt-12 text-sm font-semibold text-[var(--danger)]">
+        Emergency: call 108 or go to the nearest hospital.
+      </p>
     </main>
   );
 }

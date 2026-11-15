@@ -13,7 +13,9 @@ const Body = z.object({
   elder_name: shortText(80),
   elder_age: z.number().int().min(1).max(120).nullable().optional(),
   city: shortText(80),
-  language: z.enum(["English", "Hindi", "Tamil", "Telugu", "Bengali", "Marathi", "Kannada", "Other"]).default("English"),
+  language: z
+    .enum(["English", "Hindi", "Tamil", "Telugu", "Bengali", "Marathi", "Kannada", "Other"])
+    .default("English"),
   role: z.enum(["family", "caretaker", "elder"]).default("family"),
   pin,
 });
@@ -27,10 +29,22 @@ export async function POST(req: Request) {
   const id = `hh-${randomUUID()}`;
   await batch([
     createHouseholdStmt({
-      id, elder_name: p.data.elder_name, elder_age: p.data.elder_age ?? null, city: p.data.city,
-      language: p.data.language, owner_user_id: u.user.id, is_demo: 0, demo_credentials_json: null,
+      id,
+      elder_name: p.data.elder_name,
+      elder_age: p.data.elder_age ?? null,
+      city: p.data.city,
+      language: p.data.language,
+      owner_user_id: u.user.id,
+      is_demo: 0,
+      demo_credentials_json: null,
     }),
-    addMembershipStmt({ id: `ms-${randomUUID()}`, user_id: u.user.id, household_id: id, role: p.data.role, pin_hash: bcrypt.hashSync(p.data.pin, 10) }),
+    addMembershipStmt({
+      id: `ms-${randomUUID()}`,
+      user_id: u.user.id,
+      household_id: id,
+      role: p.data.role,
+      pin_hash: bcrypt.hashSync(p.data.pin, 10),
+    }),
   ]);
   return withSession(NextResponse.json({ ok: true, householdId: id }), u.user.id, id);
 }

@@ -101,9 +101,13 @@ export async function isLoginLocked(email: string): Promise<boolean> {
   return Boolean(until && Date.parse(until) > Date.now());
 }
 
-export async function verifyLogin(email: string, password: string): Promise<{ ok: true; user: User } | { ok: false; reason: string; status: number }> {
+export async function verifyLogin(
+  email: string,
+  password: string,
+): Promise<{ ok: true; user: User } | { ok: false; reason: string; status: number }> {
   const key = email.toLowerCase();
-  if (await isLoginLocked(key)) return { ok: false, reason: "Too many attempts. Try again in a few minutes.", status: 429 };
+  if (await isLoginLocked(key))
+    return { ok: false, reason: "Too many attempts. Try again in a few minutes.", status: 429 };
   const user = await getUserByEmail(key);
   const okPw = user ? bcrypt.compareSync(password, user.password_hash) : false;
   if (!user || !okPw) {
@@ -119,13 +123,18 @@ export async function verifyLogin(email: string, password: string): Promise<{ ok
   return { ok: true, user };
 }
 
-
 // ---------- per-membership confirmation PIN (re-auth before authoring) ----------
-export async function verifyPin(membershipId: string, pin: string): Promise<{ ok: true } | { ok: false; reason: string }> {
+export async function verifyPin(
+  membershipId: string,
+  pin: string,
+): Promise<{ ok: true } | { ok: false; reason: string }> {
   const m = await getMembershipById(membershipId);
   if (!m) return { ok: false, reason: "Unknown membership" };
   if (m.lockout_until && Date.parse(m.lockout_until) > Date.now()) {
-    return { ok: false, reason: `Locked after ${LOCKOUT_MAX_ATTEMPTS} wrong PINs. Try again in ${LOCKOUT_MINUTES} minutes.` };
+    return {
+      ok: false,
+      reason: `Locked after ${LOCKOUT_MAX_ATTEMPTS} wrong PINs. Try again in ${LOCKOUT_MINUTES} minutes.`,
+    };
   }
   if (!bcrypt.compareSync(pin, m.pin_hash)) {
     const n = Number(m.failed_attempts) + 1;

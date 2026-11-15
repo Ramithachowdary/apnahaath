@@ -19,7 +19,9 @@ const MessagesSchema = z.object({
 });
 export type CareMessages = z.infer<typeof MessagesSchema>;
 
-export function validateCareMessages(raw: unknown): { ok: true; messages: CareMessages } | { ok: false; error: string } {
+export function validateCareMessages(
+  raw: unknown,
+): { ok: true; messages: CareMessages } | { ok: false; error: string } {
   const p = MessagesSchema.safeParse(raw);
   if (!p.success) return { ok: false, error: p.error.message };
   const blob = `${p.data.elder} ${p.data.caretaker} ${p.data.family}`;
@@ -30,7 +32,9 @@ export function validateCareMessages(raw: unknown): { ok: true; messages: CareMe
 export function templateMessages(card: DecisionCard, elderName: string): CareMessages {
   const time = formatTime12(formatIstIso());
   return {
-    elder: /\bji\b/.test(card.elder_line_hi) ? card.elder_line_hi : `${elderName.split(" ")[0]} ji, ${card.elder_line_hi}`,
+    elder: /\bji\b/.test(card.elder_line_hi)
+      ? card.elder_line_hi
+      : `${elderName.split(" ")[0]} ji, ${card.elder_line_hi}`,
     caretaker: card.caretaker_line_hi,
     family: [
       `${time} IST — ${card.title}`,
@@ -53,11 +57,20 @@ export async function adaptionJson(instructions: string, input: unknown, maxToke
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
       signal: ctrl.signal,
-      body: JSON.stringify({ model: adaptionModel(), instructions, input: JSON.stringify(input), max_output_tokens: maxTokens, temperature: 0.3 }),
+      body: JSON.stringify({
+        model: adaptionModel(),
+        instructions,
+        input: JSON.stringify(input),
+        max_output_tokens: maxTokens,
+        temperature: 0.3,
+      }),
     });
     if (!res.ok) throw new Error(`Adaption HTTP ${res.status}`);
     const data = (await res.json()) as { output_text?: string };
-    const text = (data.output_text ?? "").trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+    const text = (data.output_text ?? "")
+      .trim()
+      .replace(/^```(?:json)?\s*/i, "")
+      .replace(/\s*```$/, "");
     return JSON.parse(text);
   } finally {
     clearTimeout(t);
@@ -108,7 +121,10 @@ export async function generateCareMessages(
     });
     if (!res.ok) throw new Error(`Adaption HTTP ${res.status}`);
     const data = (await res.json()) as { output_text?: string };
-    const text = (data.output_text ?? "").trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+    const text = (data.output_text ?? "")
+      .trim()
+      .replace(/^```(?:json)?\s*/i, "")
+      .replace(/\s*```$/, "");
     const v = validateCareMessages(JSON.parse(text));
     if (!v.ok) throw new Error(v.error);
     return { messages: v.messages, source: "adaption" };

@@ -70,9 +70,18 @@ let householdId = "";
 
 beforeAll(async () => {
   const s = await r.signup();
-  expect((await signUp(priya, { name: "Priya", email: "priya@example.com", password: "password123" })).status).toBe(200);
+  expect((await signUp(priya, { name: "Priya", email: "priya@example.com", password: "password123" })).status).toBe(
+    200,
+  );
   const h = await (await r.households()).POST;
-  const created = await priya.call(h, { elder_name: "Kamla Devi", elder_age: 74, city: "Lucknow", language: "English", role: "family", pin: "3333" });
+  const created = await priya.call(h, {
+    elder_name: "Kamla Devi",
+    elder_age: 74,
+    city: "Lucknow",
+    language: "English",
+    role: "family",
+    pin: "3333",
+  });
   expect(created.status).toBe(200);
   householdId = created.json.householdId as string;
   const inv = await r.invites();
@@ -89,16 +98,21 @@ beforeAll(async () => {
   expect(again.status).toBe(200);
   // Priya proposes a medicine; Kamla accepts -> today's dose exists
   const pr = await r.proposals();
-  const prop = await priya.call(pr.POST, { pin: "3333", kind: "add", payload: { name: "Telma 40", dose: "40 mg", schedule_time: "23:30" } });
+  const prop = await priya.call(pr.POST, {
+    pin: "3333",
+    kind: "add",
+    payload: { name: "Telma 40", dose: "40 mg", schedule_time: "23:30" },
+  });
   expect(prop.status).toBe(200);
-  expect((await kamla.call(pr.PATCH, { pin: "1111", proposalId: prop.json.proposalId, decision: "accept" }, "PATCH")).status).toBe(200);
+  expect(
+    (await kamla.call(pr.PATCH, { pin: "1111", proposalId: prop.json.proposalId, decision: "accept" }, "PATCH")).status,
+  ).toBe(200);
 });
 
 async function todaySlotId(agent: Agent) {
   const st = await agent.get((await r.state()).GET);
   return st.json.doseSlots[0].id as string;
 }
-
 
 describe("12-hour clock display", () => {
   it("formats HH:MM and IST ISO times with AM/PM", async () => {
@@ -164,13 +178,27 @@ describe("role rules", () => {
     expect(String(locked.json.error)).toMatch(/Locked/);
   });
 
-
   it("confirming a dose twice is rejected and writes only one event", async () => {
     const elder = new Agent();
     await signUp(elder, { name: "Meera", email: "meera-qa@example.com", password: "password123" });
-    expect((await elder.call((await r.households()).POST, { elder_name: "Meera", elder_age: 70, city: "Pune", language: "English", role: "elder", pin: "1111" })).status).toBe(200);
+    expect(
+      (
+        await elder.call((await r.households()).POST, {
+          elder_name: "Meera",
+          elder_age: 70,
+          city: "Pune",
+          language: "English",
+          role: "elder",
+          pin: "1111",
+        })
+      ).status,
+    ).toBe(200);
     const pr = await r.proposals();
-    const prop = await elder.call(pr.POST, { pin: "1111", kind: "add", payload: { name: "Telma 40", dose: "40 mg", schedule_time: "21:00" } });
+    const prop = await elder.call(pr.POST, {
+      pin: "1111",
+      kind: "add",
+      payload: { name: "Telma 40", dose: "40 mg", schedule_time: "21:00" },
+    });
     expect(prop.status).toBe(200);
     const id = (await elder.get((await r.state()).GET)).json.doseSlots[0].id as string;
     const c = await r.confirm();
@@ -178,16 +206,35 @@ describe("role rules", () => {
     const again = await elder.call(c.POST, { doseSlotId: id, pin: "1111" });
     expect(again.status).toBe(409);
     expect(String(again.json.error)).toMatch(/Already taken/);
-    const ev = (await elder.get((await r.state()).GET)).json.events.filter((e: { type: string }) => e.type === "elder_confirmed");
+    const ev = (await elder.get((await r.state()).GET)).json.events.filter(
+      (e: { type: string }) => e.type === "elder_confirmed",
+    );
     expect(ev).toHaveLength(1);
   });
 
   it("family can add and edit an appointment; caretaker cannot", async () => {
     const ap = await r.appointments();
-    const add = await priya.call(ap.POST, { pin: "3333", doctor: "Dr. Sharma", place: "Aliganj", scheduled_at: "2026-11-19T11:15" });
+    const add = await priya.call(ap.POST, {
+      pin: "3333",
+      doctor: "Dr. Sharma",
+      place: "Aliganj",
+      scheduled_at: "2026-11-19T11:15",
+    });
     expect(add.status).toBe(200);
-    expect((await priya.call(ap.POST, { pin: "3333", id: add.json.id, doctor: "Dr. Sharma", place: "Room 4", scheduled_at: "2026-11-19T11:30" })).status).toBe(200);
-    expect((await sunita.call(ap.POST, { pin: "2222", doctor: "x", place: "y", scheduled_at: "2026-11-19T11:30" })).status).toBe(403);
+    expect(
+      (
+        await priya.call(ap.POST, {
+          pin: "3333",
+          id: add.json.id,
+          doctor: "Dr. Sharma",
+          place: "Room 4",
+          scheduled_at: "2026-11-19T11:30",
+        })
+      ).status,
+    ).toBe(200);
+    expect(
+      (await sunita.call(ap.POST, { pin: "2222", doctor: "x", place: "y", scheduled_at: "2026-11-19T11:30" })).status,
+    ).toBe(403);
   });
 });
 
@@ -196,7 +243,14 @@ describe("isolation and security", () => {
     // outsider is the elder of their own, separate care circle
     const outsider = new Agent();
     await signUp(outsider, { name: "Outsider", email: "outsider@example.com", password: "password123" });
-    await outsider.call((await r.households()).POST, { elder_name: "Other Elder", elder_age: 80, city: "Pune", language: "English", role: "elder", pin: "1111" });
+    await outsider.call((await r.households()).POST, {
+      elder_name: "Other Elder",
+      elder_age: 80,
+      city: "Pune",
+      language: "English",
+      role: "elder",
+      pin: "1111",
+    });
     const id = await todaySlotId(kamla);
     // outsider cannot touch Kamla's slot: id not found in *their* household
     const res = await outsider.call((await r.confirm()).POST, { doseSlotId: id, pin: "1111" });
@@ -211,7 +265,9 @@ describe("isolation and security", () => {
 
   it("forged / unsigned session cookie is rejected", async () => {
     const forged = new Agent();
-    forged.cookie = Buffer.from(JSON.stringify({ uid: "u-x", hid: householdId, iat: Date.now() / 1000 })).toString("base64url") + ".fake";
+    forged.cookie =
+      Buffer.from(JSON.stringify({ uid: "u-x", hid: householdId, iat: Date.now() / 1000 })).toString("base64url") +
+      ".fake";
     expect((await forged.get((await r.state()).GET)).status).toBe(401);
   });
 });
@@ -221,24 +277,46 @@ describe("reminders and skips", () => {
     // a fresh real circle where the creator is the elder
     const elder = new Agent();
     await signUp(elder, { name: "Savitri", email: "savitri@example.com", password: "password123" });
-    const hh = (await elder.call((await r.households()).POST, { elder_name: "Savitri", elder_age: 78, city: "Jaipur", language: "English", role: "elder", pin: "1111" })).json.householdId as string;
+    const hh = (
+      await elder.call((await r.households()).POST, {
+        elder_name: "Savitri",
+        elder_age: 78,
+        city: "Jaipur",
+        language: "English",
+        role: "elder",
+        pin: "1111",
+      })
+    ).json.householdId as string;
     const pr = await r.proposals();
-    for (const [name, t] of [["Telma 40", "23:40"], ["Glycomet 500", "23:50"]]) {
-      const p = await elder.call(pr.POST, { pin: "1111", kind: "add", payload: { name, dose: "1 tablet", schedule_time: t } });
+    for (const [name, t] of [
+      ["Telma 40", "23:40"],
+      ["Glycomet 500", "23:50"],
+    ]) {
+      const p = await elder.call(pr.POST, {
+        pin: "1111",
+        kind: "add",
+        payload: { name, dose: "1 tablet", schedule_time: t },
+      });
       expect(p.status).toBe(200);
-      if (p.json.proposalId) await elder.call(pr.PATCH, { pin: "1111", proposalId: p.json.proposalId, decision: "accept" }, "PATCH");
+      if (p.json.proposalId)
+        await elder.call(pr.PATCH, { pin: "1111", proposalId: p.json.proposalId, decision: "accept" }, "PATCH");
     }
     const st = await elder.get((await r.state()).GET);
     expect(st.json.doseSlots.length).toBe(2);
     const pending = st.json.doseSlots.find((s: { status: string }) => s.status === "pending");
     const before = st.json.adherence;
-    expect((await elder.call((await r.skip()).POST, { doseSlotId: pending.id, pin: "1111", reason: "Fasting" })).status).toBe(200);
+    expect(
+      (await elder.call((await r.skip()).POST, { doseSlotId: pending.id, pin: "1111", reason: "Fasting" })).status,
+    ).toBe(200);
     const after = (await elder.get((await r.state()).GET)).json.adherence;
     expect(after.skipped).toBe(before.skipped + 1);
     expect(after.missed).toBe(before.missed);
     // push the remaining pending slot far into the past, then run reminders twice
     const { query, listOutbox } = await import("../src/lib/db");
-    await query(`UPDATE dose_slots SET scheduled_at = ? WHERE household_id = ? AND status='pending'`, [new Date(Date.now() - 5 * 3600_000).toISOString(), hh]);
+    await query(`UPDATE dose_slots SET scheduled_at = ? WHERE household_id = ? AND status='pending'`, [
+      new Date(Date.now() - 5 * 3600_000).toISOString(),
+      hh,
+    ]);
     const { runMorningCheck } = await import("../src/lib/reminders");
     await runMorningCheck(hh);
     const n1 = (await listOutbox(hh)).length;
@@ -254,11 +332,14 @@ describe("AI guards", () => {
   it("Gemini card JSON with a dose change is rejected", async () => {
     const { validateWarnOnlyCard } = await import("../src/lib/gemini");
     const base = {
-      severity: "review_required", title: "Brufen + Ecosprin",
+      severity: "review_required",
+      title: "Brufen + Ecosprin",
       elder_line_hi: "Please talk to your doctor. Nothing was changed.",
       caretaker_line_hi: "Please tell the doctor about the Brufen.",
       family_line_en: "Possible interaction; clinician review recommended.",
-      tell_doctor: "Mention self-added Brufen.", changes_prescription: false, dose_change: null,
+      tell_doctor: "Mention self-added Brufen.",
+      changes_prescription: false,
+      dose_change: null,
     };
     expect(validateWarnOnlyCard(base).ok).toBe(true);
     expect(validateWarnOnlyCard({ ...base, dose_change: { drug: "Ecosprin", to: "0 mg" } }).ok).toBe(false);
@@ -269,13 +350,32 @@ describe("AI guards", () => {
   it("Adaption output with a dose change is rejected and falls back to templates", async () => {
     process.env.ADAPTION_API_KEY = "test-key";
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(JSON.stringify({ output_text: JSON.stringify({ elder: "Kamla ji, please stop taking Ecosprin now.", caretaker: "Give half the dose of Ecosprin.", family: "We reduced the dose of Ecosprin to 40mg today." }) }), { status: 200 }),
+      new Response(
+        JSON.stringify({
+          output_text: JSON.stringify({
+            elder: "Kamla ji, please stop taking Ecosprin now.",
+            caretaker: "Give half the dose of Ecosprin.",
+            family: "We reduced the dose of Ecosprin to 40mg today.",
+          }),
+        }),
+        { status: 200 },
+      ),
     );
     const { generateCareMessages } = await import("../src/lib/adaption");
     const card = {
-      id: "c", household_id: "h", source_event_id: null, severity: "review_required", title: "Brufen + Ecosprin",
-      elder_line_hi: "Please talk to your doctor.", caretaker_line_hi: "Do not give Brufen until the doctor says so.",
-      family_line_en: "Possible interaction.", tell_doctor: "Mention Brufen.", disclaimer: "", emergency_line: "", cached: 1, created_at: "",
+      id: "c",
+      household_id: "h",
+      source_event_id: null,
+      severity: "review_required",
+      title: "Brufen + Ecosprin",
+      elder_line_hi: "Please talk to your doctor.",
+      caretaker_line_hi: "Do not give Brufen until the doctor says so.",
+      family_line_en: "Possible interaction.",
+      tell_doctor: "Mention Brufen.",
+      disclaimer: "",
+      emergency_line: "",
+      cached: 1,
+      created_at: "",
     };
     const res = await generateCareMessages(card, "Kamla Devi");
     expect(res.source).toBe("template");
@@ -288,13 +388,25 @@ describe("AI guards", () => {
     const { query } = await import("../src/lib/db");
     await query("UPDATE memberships SET lockout_until = NULL, failed_attempts = 0");
     const pr = await r.proposals();
-    const add = await priya.call(pr.POST, { pin: "3333", kind: "add", payload: { name: "Thyronorm 50", schedule_time: "06:30" } });
+    const add = await priya.call(pr.POST, {
+      pin: "3333",
+      kind: "add",
+      payload: { name: "Thyronorm 50", schedule_time: "06:30" },
+    });
     await kamla.call(pr.PATCH, { pin: "1111", proposalId: add.json.proposalId, decision: "accept" }, "PATCH");
     const st = await priya.get((await r.state()).GET);
     expect(st.json.medicines.some((m: { name: string }) => m.name === "Thyronorm 50")).toBe(true);
-    const bad = await priya.call(pr.POST, { pin: "3333", kind: "add", payload: { name: "Shelcal 500", schedule_time: "08:00" } });
+    const bad = await priya.call(pr.POST, {
+      pin: "3333",
+      kind: "add",
+      payload: { name: "Shelcal 500", schedule_time: "08:00" },
+    });
     expect(bad.status).toBe(400);
-    const ok = await priya.call(pr.POST, { pin: "3333", kind: "add", payload: { name: "Shelcal 500", schedule_time: "16:00" } });
+    const ok = await priya.call(pr.POST, {
+      pin: "3333",
+      kind: "add",
+      payload: { name: "Shelcal 500", schedule_time: "16:00" },
+    });
     expect(ok.status).toBe(200);
   });
 });
@@ -308,14 +420,33 @@ describe("weekly care summary (Adaption)", () => {
     process.env.ADAPTION_API_KEY = "test-key";
     const realFetch = globalThis.fetch;
     globalThis.fetch = (async () =>
-      new Response(JSON.stringify({ output_text: JSON.stringify({ elder: "Take two tablets of Telma now.", caretaker: "Increase the dose to 80 mg.", family: "We doubled the dose of Telma this week to fix her BP." }) }), { status: 200 })) as typeof fetch;
+      new Response(
+        JSON.stringify({
+          output_text: JSON.stringify({
+            elder: "Take two tablets of Telma now.",
+            caretaker: "Increase the dose to 80 mg.",
+            family: "We doubled the dose of Telma this week to fix her BP.",
+          }),
+        }),
+        { status: 200 },
+      )) as typeof fetch;
     try {
       const r = await generateWeeklySummary(householdId, "Kamla Devi");
       expect(r.source).toBe("template");
       expect(r.summary.family).toContain("Elder-confirmation rate");
       expect(r.disclaimer.length).toBeGreaterThan(10);
       globalThis.fetch = (async () =>
-        new Response(JSON.stringify({ output_text: JSON.stringify({ elder: "Kamla ji, you did well this week. Thank you.", caretaker: "Remind her at night and let her mark it herself.", family: "This week Kamla confirmed most doses herself.\nNothing was missed.\nAsk the doctor about evening timing." }) }), { status: 200 })) as typeof fetch;
+        new Response(
+          JSON.stringify({
+            output_text: JSON.stringify({
+              elder: "Kamla ji, you did well this week. Thank you.",
+              caretaker: "Remind her at night and let her mark it herself.",
+              family:
+                "This week Kamla confirmed most doses herself.\nNothing was missed.\nAsk the doctor about evening timing.",
+            }),
+          }),
+          { status: 200 },
+        )) as typeof fetch;
       const ok = await generateWeeklySummary(householdId, "Kamla Devi");
       expect(ok.source).toBe("adaption");
     } finally {
@@ -378,11 +509,39 @@ describe("rate limits", () => {
 describe("safety-note dedupe", () => {
   it("keeps only the newest note about the same medicines", async () => {
     const { dedupeCards } = await import("../src/lib/cards");
-    const base = { household_id: "h", source_event_id: null, severity: "review_required", elder_line_hi: "x", caretaker_line_hi: "x", tell_doctor: "x", disclaimer: "x", emergency_line: "x", cached: 0 };
+    const base = {
+      household_id: "h",
+      source_event_id: null,
+      severity: "review_required",
+      elder_line_hi: "x",
+      caretaker_line_hi: "x",
+      tell_doctor: "x",
+      disclaimer: "x",
+      emergency_line: "x",
+      cached: 0,
+    };
     const cards = [
-      { ...base, id: "a", title: "Brufen and Ecosprin", family_line_en: "Brufen with Ecosprin raises bleeding risk", created_at: "2026-11-15T09:00:00+05:30" },
-      { ...base, id: "b", title: "Brufen interaction notice", family_line_en: "Brufen and Ecosprin together", created_at: "2026-11-15T11:00:00+05:30" },
-      { ...base, id: "c", title: "Thyronorm timing", family_line_en: "Keep Thyronorm 4 hours from Shelcal", created_at: "2026-11-15T10:00:00+05:30" },
+      {
+        ...base,
+        id: "a",
+        title: "Brufen and Ecosprin",
+        family_line_en: "Brufen with Ecosprin raises bleeding risk",
+        created_at: "2026-11-15T09:00:00+05:30",
+      },
+      {
+        ...base,
+        id: "b",
+        title: "Brufen interaction notice",
+        family_line_en: "Brufen and Ecosprin together",
+        created_at: "2026-11-15T11:00:00+05:30",
+      },
+      {
+        ...base,
+        id: "c",
+        title: "Thyronorm timing",
+        family_line_en: "Keep Thyronorm 4 hours from Shelcal",
+        created_at: "2026-11-15T10:00:00+05:30",
+      },
     ];
     const out = dedupeCards(cards as never, ["Brufen 400", "Ecosprin 75", "Thyronorm 50", "Shelcal 500"]);
     expect(out.map((c) => c.id)).toEqual(["b", "c"]);
@@ -402,9 +561,15 @@ describe("one-tap email links (signed, expiring, single use)", () => {
     const { elder, slot } = await ids();
     const t = createDoseToken({ hid: householdId, sid: slot, uid: elder, role: "elder" });
     const [p, s] = t.split(".");
-    const forged = Buffer.from(JSON.stringify({ ...JSON.parse(Buffer.from(p, "base64url").toString()), role: "elder", uid: "someone" })).toString("base64url");
+    const forged = Buffer.from(
+      JSON.stringify({ ...JSON.parse(Buffer.from(p, "base64url").toString()), role: "elder", uid: "someone" }),
+    ).toString("base64url");
     expect((await redeemDoseToken(`${forged}.${s}`)).ok).toBe(false);
-    const expired = createDoseToken({ hid: householdId, sid: slot, uid: elder, role: "elder" }, 60, Date.now() / 1000 - 3600);
+    const expired = createDoseToken(
+      { hid: householdId, sid: slot, uid: elder, role: "elder" },
+      60,
+      Date.now() / 1000 - 3600,
+    );
     expect(await redeemDoseToken(expired)).toMatchObject({ ok: false, status: 400 });
     const wrongHh = createDoseToken({ hid: "hh-other", sid: slot, uid: elder, role: "elder" });
     expect(await redeemDoseToken(wrongHh)).toMatchObject({ ok: false, status: 403 });
@@ -413,8 +578,12 @@ describe("one-tap email links (signed, expiring, single use)", () => {
   it("a family member's link is only a witness and never marks the dose taken; a role cannot be claimed", async () => {
     const { createDoseToken, redeemDoseToken } = await import("../src/lib/doselink");
     const { family, slot } = await ids();
-    expect(await redeemDoseToken(createDoseToken({ hid: householdId, sid: slot, uid: family, role: "elder" }))).toMatchObject({ ok: false, status: 403 });
-    expect(await redeemDoseToken(createDoseToken({ hid: householdId, sid: slot, uid: family, role: "family" }))).toMatchObject({ ok: true, outcome: "witnessed" });
+    expect(
+      await redeemDoseToken(createDoseToken({ hid: householdId, sid: slot, uid: family, role: "elder" })),
+    ).toMatchObject({ ok: false, status: 403 });
+    expect(
+      await redeemDoseToken(createDoseToken({ hid: householdId, sid: slot, uid: family, role: "family" })),
+    ).toMatchObject({ ok: true, outcome: "witnessed" });
     const st = await kamla.get((await r.state()).GET);
     expect(st.json.doseSlots.find((d: { id: string }) => d.id === slot).status).toBe("pending");
   });
@@ -429,7 +598,11 @@ describe("one-tap email links (signed, expiring, single use)", () => {
     expect(await g.text()).toContain("Yes, I took it");
     const before = await kamla.get((await r.state()).GET);
     expect(before.json.doseSlots.find((d: { id: string }) => d.id === slot).status).toBe("pending");
-    const post = () => { const f = new FormData(); f.set("t", t); return route.POST(new Request("http://localhost/api/doses/link", { method: "POST", body: f })); };
+    const post = () => {
+      const f = new FormData();
+      f.set("t", t);
+      return route.POST(new Request("http://localhost/api/doses/link", { method: "POST", body: f }));
+    };
     expect((await post()).status).toBe(200);
     const after = await kamla.get((await r.state()).GET);
     expect(after.json.doseSlots.find((d: { id: string }) => d.id === slot).status).toBe("elder_confirmed");
@@ -452,7 +625,6 @@ describe("reminder recipients", () => {
   });
 });
 
-
 describe("email verification (OTP)", () => {
   it("sign-up gives no session until the 6-digit code is verified; wrong codes are limited to 5", async () => {
     const a = new Agent();
@@ -466,7 +638,8 @@ describe("email verification (OTP)", () => {
     expect(l.json.needsVerification).toBe(true);
     const v = await import("../src/app/api/auth/verify/route");
     const wrong = String((Number(s.json.devCode) % 900000) + 100001).slice(0, 6);
-    for (let i = 0; i < 5; i++) expect((await a.call(v.POST, { email: "otp@example.com", code: wrong })).status).toBeGreaterThanOrEqual(400);
+    for (let i = 0; i < 5; i++)
+      expect((await a.call(v.POST, { email: "otp@example.com", code: wrong })).status).toBeGreaterThanOrEqual(400);
     // locked after 5 wrong tries, even with the right code
     expect((await a.call(v.POST, { email: "otp@example.com", code: s.json.devCode })).status).toBe(429);
     expect(a.cookie).toBeUndefined();
@@ -474,7 +647,11 @@ describe("email verification (OTP)", () => {
 
   it("codes are stored hashed, expire after 10 minutes, and resend has a cooldown", async () => {
     const a = new Agent();
-    const s = await a.call((await r.signup()).POST, { name: "Otp2", email: "otp2@example.com", password: "password123" });
+    const s = await a.call((await r.signup()).POST, {
+      name: "Otp2",
+      email: "otp2@example.com",
+      password: "password123",
+    });
     const { getUserByEmail, getOtp } = await import("../src/lib/db");
     const u = (await getUserByEmail("otp2@example.com"))!;
     const row = (await getOtp(u.id))!;
@@ -484,7 +661,15 @@ describe("email verification (OTP)", () => {
     expect((await a.call(resend.POST, { email: "otp2@example.com" })).status).toBe(429);
     const { verifyOtp } = await import("../src/lib/otp");
     expect((await verifyOtp(u.id, String(s.json.devCode), Date.now() + 11 * 60_000)).ok).toBe(false);
-    const ok = await (await import("../src/app/api/auth/verify/route")).POST(new Request("http://x", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: "otp2@example.com", code: s.json.devCode }) }));
+    const ok = await (
+      await import("../src/app/api/auth/verify/route")
+    ).POST(
+      new Request("http://x", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: "otp2@example.com", code: s.json.devCode }),
+      }),
+    );
     expect(ok.status).toBe(200);
     expect(ok.headers.get("set-cookie")).toMatch(/apnahaath_session=/);
   });
@@ -497,7 +682,9 @@ describe("email verification (OTP)", () => {
     expect(res.headers.get("location")).toMatch(/auth_error=google_unavailable/);
     const { googleRedirectUri } = await import("../src/lib/google");
     process.env.APP_URL = "https://apnahaath-ramithas-projects-88e2a822.vercel.app";
-    expect(googleRedirectUri()).toBe("https://apnahaath-ramithas-projects-88e2a822.vercel.app/api/auth/google/callback");
+    expect(googleRedirectUri()).toBe(
+      "https://apnahaath-ramithas-projects-88e2a822.vercel.app/api/auth/google/callback",
+    );
     delete process.env.APP_URL;
   });
 });

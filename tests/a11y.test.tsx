@@ -14,7 +14,9 @@ const landing = renderToStaticMarkup(<CareApp hasSession={false} />);
 
 function hexToLum(hex: string) {
   const n = hex.replace("#", "");
-  const [r, g, b] = [0, 2, 4].map((i) => parseInt(n.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+  const [r, g, b] = [0, 2, 4]
+    .map((i) => parseInt(n.slice(i, i + 2), 16) / 255)
+    .map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 const contrast = (a: string, b: string) => {
@@ -29,7 +31,9 @@ describe("accessibility", () => {
   });
 
   it("every form field on the landing page has a label (WCAG 1.3.1 / 4.1.2)", () => {
-    const inputs = [...landing.matchAll(/<(input|select|textarea)\b([^>]*)>/g)].filter((m) => !/type="hidden"/.test(m[2]));
+    const inputs = [...landing.matchAll(/<(input|select|textarea)\b([^>]*)>/g)].filter(
+      (m) => !/type="hidden"/.test(m[2]),
+    );
     expect(inputs.length).toBeGreaterThan(0);
     for (const [, , attrs] of inputs) {
       const id = /\bid="([^"]+)"/.exec(attrs)?.[1];
@@ -70,7 +74,6 @@ describe("accessibility", () => {
       expect(src).toMatch(new RegExp(`${status}: "[A-Z][^"]+"`));
     }
   });
-
 
   it("display toggles switch their label and aria-pressed (Large/Small, High/Normal contrast)", () => {
     const src = readFileSync(path.join(root, "src/components/CareApp.tsx"), "utf8");

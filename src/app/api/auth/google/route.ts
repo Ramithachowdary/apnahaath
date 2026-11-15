@@ -12,6 +12,12 @@ export async function GET(req: Request) {
   if (new URL(req.url).host !== new URL(base).host) return NextResponse.redirect(`${base}/api/auth/google`);
   const state = randomBytes(24).toString("base64url");
   const res = NextResponse.redirect(googleAuthUrl(state));
-  res.cookies.set(GOOGLE_STATE_COOKIE, state, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/api/auth/google", maxAge: 600 });
+  res.cookies.set(GOOGLE_STATE_COOKIE, state, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/api/auth/google",
+    maxAge: 600,
+  });
   return res;
 }

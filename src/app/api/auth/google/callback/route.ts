@@ -21,7 +21,14 @@ export async function GET(req: Request) {
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state") ?? "";
   const expected = (await cookies()).get(GOOGLE_STATE_COOKIE)?.value ?? "";
-  if (!code || !state || !expected || state.length !== expected.length || !timingSafeEqual(Buffer.from(state), Buffer.from(expected))) return fail("google_state");
+  if (
+    !code ||
+    !state ||
+    !expected ||
+    state.length !== expected.length ||
+    !timingSafeEqual(Buffer.from(state), Buffer.from(expected))
+  )
+    return fail("google_state");
   let profile;
   try {
     profile = await exchangeGoogleCode(code);
@@ -39,7 +46,15 @@ export async function GET(req: Request) {
     } else {
       const id = `u-${randomUUID()}`;
       // Random unusable password: this account signs in with Google.
-      await createUser({ id, name: profile.name.slice(0, 80), email: profile.email, password_hash: hashPassword(randomBytes(32).toString("hex")), is_demo: 0, email_verified: 1, google_id: profile.sub });
+      await createUser({
+        id,
+        name: profile.name.slice(0, 80),
+        email: profile.email,
+        password_hash: hashPassword(randomBytes(32).toString("hex")),
+        is_demo: 0,
+        email_verified: 1,
+        google_id: profile.sub,
+      });
       user = (await getUserByGoogleId(profile.sub))!;
     }
   }

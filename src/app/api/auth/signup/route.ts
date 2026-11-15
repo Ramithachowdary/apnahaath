@@ -19,7 +19,10 @@ const Body = z.object({
 /** Step 1 of sign-up: create an unverified account and email a 6-digit code. No session until the code is verified. */
 export async function POST(req: Request) {
   if (!rateLimit(`signup:${clientIp(req)}`, 10, 10 * 60_000)) {
-    return NextResponse.json({ error: "Too many sign-ups from this network. Please try again in a few minutes." }, { status: 429 });
+    return NextResponse.json(
+      { error: "Too many sign-ups from this network. Please try again in a few minutes." },
+      { status: 429 },
+    );
   }
   const p = await parseBody(req, Body);
   if ("error" in p) return p.error;
@@ -28,7 +31,10 @@ export async function POST(req: Request) {
   let id: string;
   if (existing) {
     if (existing.email_verified !== 0) {
-      return NextResponse.json({ error: "An account with this email already exists. Please sign in." }, { status: 409 });
+      return NextResponse.json(
+        { error: "An account with this email already exists. Please sign in." },
+        { status: 409 },
+      );
     }
     id = existing.id; // unfinished sign-up: refresh details and send a new code
     await updateUnverifiedUser(id, name, hashPassword(password));
@@ -37,6 +43,16 @@ export async function POST(req: Request) {
     await createUser({ id, name, email, password_hash: hashPassword(password), is_demo: 0, email_verified: 0 });
   }
   const r = await issueOtp(id, email, name);
-  if (!r.ok) return NextResponse.json({ error: r.error, needsVerification: true, email, retryAfterS: r.retryAfterS }, { status: r.status });
-  return NextResponse.json({ ok: true, needsVerification: true, email, emailSent: r.sent, ...(r.devCode ? { devCode: r.devCode } : {}) });
+  if (!r.ok)
+    return NextResponse.json(
+      { error: r.error, needsVerification: true, email, retryAfterS: r.retryAfterS },
+      { status: r.status },
+    );
+  return NextResponse.json({
+    ok: true,
+    needsVerification: true,
+    email,
+    emailSent: r.sent,
+    ...(r.devCode ? { devCode: r.devCode } : {}),
+  });
 }
