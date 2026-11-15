@@ -17,9 +17,9 @@ function describeProposal(p: State["proposals"][number], meds: State["medicines"
   }
   const name = meds.find((m) => m.id === p.medicine_id)?.name ?? pl.name ?? "a medicine";
   if (p.kind === "add")
-    return `Add ${name}${pl.dose ? ` (${pl.dose})` : ""} at ${pl.schedule_time ? formatTime12(pl.schedule_time) : ""}${pl.instructions ? ` — ${pl.instructions}` : ""}`;
+    return `Add ${name}${pl.dose ? ` (${pl.dose})` : ""} at ${pl.schedule_time ? formatTime12(pl.schedule_time) : ""}${pl.instructions ? `, ${pl.instructions}` : ""}`;
   if (p.kind === "edit_schedule") return `Move ${name} to ${pl.schedule_time ? formatTime12(pl.schedule_time) : ""}`;
-  if (p.kind === "stop") return `Stop ${name}${pl.reason ? ` — ${pl.reason}` : ""}`;
+  if (p.kind === "stop") return `Stop ${name}${pl.reason ? `: ${pl.reason}` : ""}`;
   return p.kind;
 }
 
@@ -44,12 +44,17 @@ export function Medicines({
   return (
     <div className="grid gap-6 lg:grid-cols-2">
       <section className="panel">
-        <h2 className="text-2xl font-semibold">Medicine list</h2>
+        <h2 className="text-2xl font-semibold">Current medicines</h2>
+        <p className="text-sm text-[var(--muted)]">
+          Shown exactly as entered. Every medicine is taken daily at its time.
+        </p>
         <div className="mt-3 space-y-2">
           {active.length === 0 && (
             <Empty>
-              No medicines yet. Use the form here to add {state.household.elder_name}&apos;s first medicine — for
-              example the morning BP tablet, with its time. The elder accepts or declines each suggestion.
+              No medicines yet.{" "}
+              {role === "family"
+                ? `Use “Suggest a new medicine” to add ${state.household.elder_name}'s first medicine. The older adult accepts or declines each suggestion.`
+                : "A family member suggests each medicine. The older adult accepts it, then it appears here."}
             </Empty>
           )}
           {active.map((m) => (
@@ -59,14 +64,28 @@ export function Medicines({
               style={{ borderLeftWidth: 8, borderLeftColor: m.color_band }}
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <p className="text-lg font-semibold">
-                    {m.name} <span className="font-normal text-[var(--muted)]">{m.dose}</span>
-                  </p>
-                  <p className="text-[var(--muted)]">
-                    {formatTime12(m.schedule_time)} · {dayPart(m.schedule_time)}
-                    {m.instructions ? ` · ${m.instructions}` : ""}
-                  </p>
+                <div className="min-w-0 flex-1">
+                  <p className="text-lg font-semibold">{m.name}</p>
+                  <dl className="mt-1 grid grid-cols-2 gap-x-4 gap-y-1 text-sm sm:grid-cols-4">
+                    <div>
+                      <dt className="text-[var(--muted)]">Dose</dt>
+                      <dd className="font-medium">{m.dose || "Not given"}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-[var(--muted)]">Time</dt>
+                      <dd className="font-medium">
+                        {formatTime12(m.schedule_time)} · {dayPart(m.schedule_time)}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-[var(--muted)]">Frequency</dt>
+                      <dd className="font-medium">Daily</dd>
+                    </div>
+                    <div>
+                      <dt className="text-[var(--muted)]">Instructions</dt>
+                      <dd className="font-medium">{m.instructions || "None"}</dd>
+                    </div>
+                  </dl>
                 </div>
                 {role === "family" && (
                   <div className="flex flex-wrap items-center gap-2">
@@ -90,7 +109,7 @@ export function Medicines({
                                 payload: { schedule_time: moveTime[m.id] ?? m.schedule_time },
                               }),
                             }),
-                          "Suggestion sent. It changes only when the elder says yes.",
+                          "Suggestion sent. It changes only when the older adult says yes.",
                         )
                       }
                     >
@@ -126,7 +145,7 @@ export function Medicines({
       <div className="space-y-6">
         {role === "elder" && (
           <section className="panel">
-            <h2 className="text-2xl font-semibold">Suggestions for you</h2>
+            <h2 className="text-2xl font-semibold">Suggestions waiting for your answer</h2>
             {pending.length === 0 && <Empty>No suggestions waiting.</Empty>}
             {pending.map((p) => (
               <div key={p.id} className="mt-3 rounded-xl border bg-white p-4">
@@ -174,7 +193,7 @@ export function Medicines({
           <section className="panel">
             <h2 className="text-2xl font-semibold">Suggest a new medicine</h2>
             <p className="text-sm text-[var(--muted)]">
-              It is added only after the elder says yes. Thyronorm and Shelcal must be 4+ hours apart (fixed rule).
+              It is added only after the older adult says yes. Thyronorm and Shelcal must be at least 4 hours apart.
             </p>
             <div className="mt-3 grid gap-2 md:grid-cols-2">
               <input
@@ -213,7 +232,7 @@ export function Medicines({
                         payload: { name, dose, schedule_time: time, instructions: instr },
                       }),
                     }),
-                  "Suggestion sent to the elder.",
+                  "Suggestion sent to the older adult.",
                 )
               }
             >
@@ -222,14 +241,21 @@ export function Medicines({
           </section>
         )}
         <section className="panel">
-          <h2 className="text-xl font-semibold">All suggestions</h2>
-          {state.proposals.length === 0 && <Empty>None yet.</Empty>}
+          <h2 className="text-xl font-semibold">Suggestions</h2>
+          {state.proposals.length === 0 && <Empty>No suggestions yet.</Empty>}
+          {(role === "elder" ? state.proposals.filter((p) => p.status !== "pending") : state.proposals).length > 0 && (
+            <p className="mt-1 text-sm text-[var(--muted)]">
+              {role === "elder"
+                ? "Your past decisions."
+                : `${pending.length} pending · ${state.proposals.length - pending.length} decided`}
+            </p>
+          )}
           <ul className="mt-2 space-y-1">
-            {state.proposals.map((p) => (
+            {(role === "elder" ? state.proposals.filter((p) => p.status !== "pending") : state.proposals).map((p) => (
               <li key={p.id} className="flex justify-between gap-2 border-b py-1 text-sm">
                 <span>{describeProposal(p, state.medicines)}</span>
                 <span className="font-semibold">
-                  {p.status === "pending" ? "Waiting for elder" : p.status === "accepted" ? "Accepted" : "Declined"}
+                  {p.status === "pending" ? "Pending" : p.status === "accepted" ? "Accepted" : "Rejected"}
                 </span>
               </li>
             ))}

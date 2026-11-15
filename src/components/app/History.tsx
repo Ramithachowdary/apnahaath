@@ -25,32 +25,30 @@ export function WeeklySummary({ state, busy, act }: { state: State; busy: boolea
         : w.summary.elder
     : "";
   return (
-    <section className="panel mb-6" aria-labelledby="weekly-h">
+    <section className="panel mt-6" aria-labelledby="weekly-h">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 id="weekly-h" className="text-2xl font-semibold">
-          This week, in plain words
+          Your weekly care update
         </h2>
         <button
           className="btn-primary"
           disabled={busy}
           onClick={() => act(async () => setW((await api("/api/summary/weekly", { method: "POST" })) as Weekly))}
         >
-          {w ? "Refresh weekly summary" : "Get weekly care summary (AI)"}
+          {w ? "Refresh weekly summary" : "Generate weekly summary"}
         </button>
       </div>
       <p className="text-sm text-[var(--muted)]">
-        Numbers come from the log. Adaption only words them for {role === "elder" ? "you" : `the ${role}`}; it can never
-        change a medicine.
+        See confirmations, witnessed doses, skipped doses and pending records. The numbers come from the activity log
+        above. The wording never changes a medicine.
       </p>
       {w && (
         <div className="mt-3">
           <p className="mb-2 text-sm">
-            <span className="rounded-full bg-stone-100 px-2 py-0.5">
-              source: {w.source === "adaption" ? "Adaption" : "template fallback"}
-            </span>{" "}
+            {w.source !== "adaption" && <span className="rounded-full bg-stone-100 px-2 py-0.5">standard wording</span>}{" "}
             {w.stats.rate !== null && (
               <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-900">
-                Elder-confirmation rate {w.stats.rate}%
+                Confirmed by elder {w.stats.rate}%
               </span>
             )}
           </p>

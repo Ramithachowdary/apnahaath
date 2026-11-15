@@ -167,7 +167,7 @@ export function AddToGoogleCalendar({
   elderName: string;
 }) {
   const href = googleCalendarUrl({
-    title: `${appointment.doctor} — ${elderName}`,
+    title: `${appointment.doctor}, ${elderName}`,
     startIso: appointment.scheduled_at,
     location: appointment.place,
     details: appointment.notes ?? `Appointment for ${elderName} at ${appointment.place}`,

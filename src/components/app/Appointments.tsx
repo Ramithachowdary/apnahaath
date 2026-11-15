@@ -4,7 +4,7 @@
 import { useState } from "react";
 import type { State } from "./types";
 import { api, time12, dayLabel } from "./helpers";
-import { TimeField, Empty, AddToGoogleCalendar } from "./ui";
+import { TimeField, AddToGoogleCalendar } from "./ui";
 
 export function Appointments({
   state,
@@ -23,17 +23,30 @@ export function Appointments({
   return (
     <div className="grid gap-6 lg:grid-cols-2">
       <section className="panel">
-        <h2 className="text-2xl font-semibold">Appointments</h2>
+        <h2 className="text-2xl font-semibold">Upcoming visits</h2>
         {state.appointments.length === 0 && (
-          <Empty>
-            No appointments yet. Add the next check-up with the doctor&apos;s name and clinic — everyone gets an email
-            reminder, and you can add it to Google Calendar.
-          </Empty>
+          <div className="mt-3 rounded-xl border border-dashed p-6 text-center">
+            <p className="text-lg font-semibold">No appointments scheduled.</p>
+            <p className="mt-1 text-[var(--muted)]">
+              {family
+                ? "Add a doctor visit to keep your family informed."
+                : "A family member can add doctor visits. They will show here."}
+            </p>
+            {family && (
+              <button
+                type="button"
+                className="btn-primary mt-3"
+                onClick={() => document.getElementById("appt-doctor")?.focus()}
+              >
+                Add appointment
+              </button>
+            )}
+          </div>
         )}
         <ul className="mt-3 space-y-2">
           {state.appointments.map((a) => (
             <li key={a.id} className="rounded-xl border bg-white p-3">
-              <strong>{a.doctor}</strong> — {a.place}
+              <strong>{a.doctor}</strong>, {a.place}
               <div className="text-[var(--muted)]">
                 {dayLabel(a.scheduled_at)}, {time12(a.scheduled_at)} IST
               </div>
@@ -62,6 +75,7 @@ export function Appointments({
           <div className="mt-3 grid gap-2">
             <input
               className="input"
+              id="appt-doctor"
               placeholder="Doctor"
               value={doctor}
               onChange={(e) => setDoctor(e.target.value)}
