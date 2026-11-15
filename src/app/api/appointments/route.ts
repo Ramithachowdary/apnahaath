@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireMember, requirePin } from "@/lib/auth";
 import { getAppointment, insertEvent, upsertAppointment } from "@/lib/db";
-import { parseBody, pin, shortText } from "@/lib/validate";
+import { parseBody, pinOptional, shortText } from "@/lib/validate";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,7 +15,7 @@ export async function POST(req: Request) {
   const p = await parseBody(
     req,
     z.object({
-      pin,
+      pin: pinOptional,
       id: z.string().max(80).optional(),
       doctor: shortText(120),
       place: shortText(160),

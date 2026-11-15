@@ -4,7 +4,7 @@ import { z } from "zod";
 import { requireMember, requirePin } from "@/lib/auth";
 import { insertDecisionCard, insertEvent } from "@/lib/db";
 import { generateDecisionCard } from "@/lib/gemini";
-import { parseBody, pin, shortText } from "@/lib/validate";
+import { parseBody, pinOptional, shortText } from "@/lib/validate";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,7 +16,7 @@ export async function POST(req: Request) {
   const p = await parseBody(
     req,
     z.object({
-      pin,
+      pin: pinOptional,
       medicineName: shortText(80),
       dose: z.string().trim().max(60).optional(),
       reason: z.string().trim().max(200).optional(),

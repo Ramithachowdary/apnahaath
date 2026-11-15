@@ -165,7 +165,11 @@ type Tab = (typeof TABS)[number];
 async function api(path: string, init?: RequestInit) {
   const res = await fetch(path, { ...init, headers: { "Content-Type": "application/json", ...(init?.headers || {}) } });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || res.statusText);
+  if (!res.ok) {
+    const err = new Error(data.error || res.statusText) as Error & { needPin?: boolean };
+    err.needPin = Boolean(data.needPin);
+    throw err;
+  }
   return data;
 }
 
@@ -272,9 +276,23 @@ export default function CareApp({
     }
   }
 
-  /** Every authoring action asks for the member's personal PIN again. */
-  function withPin(fn: (pin: string) => Promise<unknown>, okText?: string) {
-    setPinReq({ fn, okText });
+  /**
+   * Authoring actions try first without a PIN: the server accepts them while the member's
+   * 15-minute PIN window is open, and replies `needPin` otherwise — only then the PIN dialog opens.
+   */
+  async function withPin(fn: (pin: string) => Promise<unknown>, okText?: string) {
+    setBusy(true);
+    setMsg(null);
+    try {
+      await fn("");
+      await refresh();
+      if (okText) setMsg({ text: okText, ok: true });
+    } catch (e) {
+      if (e instanceof Error && (e as Error & { needPin?: boolean }).needPin) setPinReq({ fn, okText });
+      else setMsg({ text: e instanceof Error ? e.message : "Something went wrong" });
+    } finally {
+      setBusy(false);
+    }
   }
 
   const logout = () => act(() => api("/api/auth/logout", { method: "POST" }));
@@ -472,7 +490,7 @@ function PinDialog({ onSubmit, onCancel }: { onSubmit: (pin: string) => void; on
           Confirm with your PIN
         </h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Every change in the care log is signed with your personal PIN.
+          Confirm it’s you — your PIN signs this change. We won’t ask again for 15 minutes.
         </p>
         <label className="mt-3 block text-sm font-semibold" htmlFor="pin-input">
           PIN (4–8 digits)
@@ -627,7 +645,7 @@ function Onboarding({ me, busy, act, invite }: { me: Me; busy: boolean; act: Act
               type="password"
               inputMode="numeric"
               pattern="\d{4,8}"
-              placeholder="Choose a 4–8 digit PIN (asked before every change)"
+              placeholder="Choose a 4–8 digit PIN (confirms changes; asked once per 15 min)"
               value={pin}
               onChange={(e) => setPin(e.target.value)}
               aria-label="Your PIN"

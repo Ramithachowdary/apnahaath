@@ -31,7 +31,7 @@ const STEPS = [
   {
     icon: UserPlus,
     title: "Create a care circle",
-    text: "Sign up, add your elder's name and choose your role. Set a personal PIN that signs every change.",
+    text: "Sign up, add your elder's name and choose your role. Set a personal PIN that signs changes (asked once every 15 minutes).",
   },
   {
     icon: Users,

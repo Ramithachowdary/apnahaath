@@ -26,5 +26,7 @@ export async function parseBody<T extends z.ZodTypeAny>(
 
 export const passcode = z.string().min(4).max(64);
 export const pin = z.string().regex(/^\d{4,8}$/, "PIN must be 4-8 digits");
+/** PIN for authoring actions: may be omitted/empty while the member's 15-minute PIN window is open. */
+export const pinOptional = z.union([pin, z.literal("")]).optional();
 export const shortText = (max = 200) => z.string().trim().min(1).max(max);
 export const hhmm = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "time must be HH:MM");
