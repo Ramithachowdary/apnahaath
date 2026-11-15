@@ -29,11 +29,9 @@ import {
   isLoginLocked,
   newInviteCode,
   requireMember,
-  requirePin,
   requireUser,
   sessionCookieOptions,
   verifyLogin,
-  verifyPin,
   withSession,
 } from "../src/lib/auth";
 import {
@@ -260,50 +258,6 @@ describe("verifyLogin", () => {
     const r = await verifyLogin("priya@example.com", "password123");
     expect(r).toEqual({ ok: true, user });
     expect(setMeta).toHaveBeenCalledWith("login_fail:priya@example.com", "0");
-  });
-});
-
-describe("verifyPin and requirePin", () => {
-  it("rejects an unknown membership", async () => {
-    getMid.mockResolvedValue(undefined);
-    expect(await verifyPin("missing", "1111")).toEqual({ ok: false, reason: "Unknown membership" });
-  });
-
-  it("rejects a locked membership", async () => {
-    getMid.mockResolvedValue({ ...membership, lockout_until: new Date(Date.now() + 60_000).toISOString() });
-    const r = await verifyPin("m1", "3333");
-    expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.reason).toMatch(/Locked after 5/);
-  });
-
-  it("increments failed attempts and locks on the fifth wrong PIN", async () => {
-    getMid.mockResolvedValue({ ...membership, failed_attempts: 3 });
-    expect(await verifyPin("m1", "0000")).toEqual({ ok: false, reason: "Wrong PIN" });
-    expect(setLock).toHaveBeenCalledWith("m1", 4, null);
-    getMid.mockResolvedValue({ ...membership, failed_attempts: 4 });
-    expect(await verifyPin("m1", "0000")).toEqual({ ok: false, reason: "Wrong PIN" });
-    expect(setLock.mock.calls.at(-1)?.[0]).toBe("m1");
-    expect(setLock.mock.calls.at(-1)?.[1]).toBe(0);
-    expect(setLock.mock.calls.at(-1)?.[2]).toBeTruthy();
-  });
-
-  it("clears the lockout on a correct PIN", async () => {
-    getMid.mockResolvedValue(membership);
-    expect(await verifyPin("m1", "3333")).toEqual({ ok: true });
-    expect(setLock).toHaveBeenCalledWith("m1", 0, null);
-  });
-
-  it("requirePin wraps a failure as a 401 response", async () => {
-    getMid.mockResolvedValue(undefined);
-    const ctx = { user, household, membership, role: "family" as const };
-    const r = await requirePin(ctx, "1111");
-    expect("error" in r).toBe(true);
-    if ("error" in r) {
-      expect(r.error.status).toBe(401);
-      expect(await r.error.json()).toEqual({ error: "Unknown membership" });
-    }
-    getMid.mockResolvedValue(membership);
-    expect(await requirePin(ctx, "3333")).toEqual({ ok: true });
   });
 });
 

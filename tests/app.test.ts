@@ -80,7 +80,6 @@ beforeAll(async () => {
     city: "Lucknow",
     language: "English",
     role: "family",
-    pin: "3333",
   });
   expect(created.status).toBe(200);
   householdId = created.json.householdId as string;
@@ -91,22 +90,21 @@ beforeAll(async () => {
   await signUp(kamla, { name: "Kamla Devi", email: "kamla@example.com", password: "password123" });
   await signUp(sunita, { name: "Sunita", email: "sunita@example.com", password: "password123" });
   const j = await r.join();
-  expect((await kamla.call(j.POST, { code: elderInv.json.code, pin: "1111" })).json.role).toBe("elder");
-  expect((await sunita.call(j.POST, { code: careInv.json.code, pin: "2222" })).json.role).toBe("caretaker");
+  expect((await kamla.call(j.POST, { code: elderInv.json.code })).json.role).toBe("elder");
+  expect((await sunita.call(j.POST, { code: careInv.json.code })).json.role).toBe("caretaker");
   // invite codes are single-use
   const again = await signUp(new Agent(), { name: "X", email: "x@example.com", password: "password123" });
   expect(again.status).toBe(200);
   // Priya proposes a medicine; Kamla accepts -> today's dose exists
   const pr = await r.proposals();
   const prop = await priya.call(pr.POST, {
-    pin: "3333",
     kind: "add",
     payload: { name: "Telma 40", dose: "40 mg", schedule_time: "23:30" },
   });
   expect(prop.status).toBe(200);
-  expect(
-    (await kamla.call(pr.PATCH, { pin: "1111", proposalId: prop.json.proposalId, decision: "accept" }, "PATCH")).status,
-  ).toBe(200);
+  expect((await kamla.call(pr.PATCH, { proposalId: prop.json.proposalId, decision: "accept" }, "PATCH")).status).toBe(
+    200,
+  );
 });
 
 async function todaySlotId(agent: Agent) {
@@ -138,8 +136,8 @@ describe("accounts, care circles, invites", () => {
     const b = new Agent();
     await signUp(a, { name: "A", email: "a1@example.com", password: "password123" });
     await signUp(b, { name: "B", email: "b1@example.com", password: "password123" });
-    expect((await a.call((await r.join()).POST, { code: inv.json.code, pin: "4444" })).status).toBe(200);
-    expect((await b.call((await r.join()).POST, { code: inv.json.code, pin: "4444" })).status).toBe(400);
+    expect((await a.call((await r.join()).POST, { code: inv.json.code })).status).toBe(200);
+    expect((await b.call((await r.join()).POST, { code: inv.json.code })).status).toBe(400);
   });
 
   it("only the owner can create invites", async () => {
@@ -156,8 +154,8 @@ describe("accounts, care circles, invites", () => {
 describe("role rules", () => {
   it("caretaker cannot confirm a dose (403); witness does not mark it taken", async () => {
     const id = await todaySlotId(sunita);
-    expect((await sunita.call((await r.confirm()).POST, { doseSlotId: id, pin: "2222" })).status).toBe(403);
-    expect((await sunita.call((await r.witness()).POST, { doseSlotId: id, pin: "2222" })).status).toBe(200);
+    expect((await sunita.call((await r.confirm()).POST, { doseSlotId: id })).status).toBe(403);
+    expect((await sunita.call((await r.witness()).POST, { doseSlotId: id })).status).toBe(200);
     const st = await sunita.get((await r.state()).GET);
     expect(st.json.doseSlots[0].status).toBe("pending");
     expect(st.json.adherence.witnessed).toBe(1);
@@ -166,16 +164,13 @@ describe("role rules", () => {
 
   it("family cannot mark a dose taken (403)", async () => {
     const id = await todaySlotId(priya);
-    expect((await priya.call((await r.confirm()).POST, { doseSlotId: id, pin: "3333" })).status).toBe(403);
+    expect((await priya.call((await r.confirm()).POST, { doseSlotId: id })).status).toBe(403);
   });
 
-  it("elder PIN locks after 5 wrong tries", async () => {
+  it("write actions need a signed-in member (no PIN, no anonymous writes)", async () => {
     const id = await todaySlotId(kamla);
-    const c = await r.confirm();
-    for (let i = 0; i < 5; i++) expect((await kamla.call(c.POST, { doseSlotId: id, pin: "9999" })).status).toBe(401);
-    const locked = await kamla.call(c.POST, { doseSlotId: id, pin: "1111" });
-    expect(locked.status).toBe(401);
-    expect(String(locked.json.error)).toMatch(/Locked/);
+    const anon = new Agent();
+    expect((await anon.call((await r.confirm()).POST, { doseSlotId: id })).status).toBe(401);
   });
 
   it("confirming a dose twice is rejected and writes only one event", async () => {
@@ -189,21 +184,19 @@ describe("role rules", () => {
           city: "Pune",
           language: "English",
           role: "elder",
-          pin: "1111",
         })
       ).status,
     ).toBe(200);
     const pr = await r.proposals();
     const prop = await elder.call(pr.POST, {
-      pin: "1111",
       kind: "add",
       payload: { name: "Telma 40", dose: "40 mg", schedule_time: "21:00" },
     });
     expect(prop.status).toBe(200);
     const id = (await elder.get((await r.state()).GET)).json.doseSlots[0].id as string;
     const c = await r.confirm();
-    expect((await elder.call(c.POST, { doseSlotId: id, pin: "1111" })).status).toBe(200);
-    const again = await elder.call(c.POST, { doseSlotId: id, pin: "1111" });
+    expect((await elder.call(c.POST, { doseSlotId: id })).status).toBe(200);
+    const again = await elder.call(c.POST, { doseSlotId: id });
     expect(again.status).toBe(409);
     expect(String(again.json.error)).toMatch(/Already taken/);
     const ev = (await elder.get((await r.state()).GET)).json.events.filter(
@@ -215,7 +208,6 @@ describe("role rules", () => {
   it("family can add and edit an appointment; caretaker cannot", async () => {
     const ap = await r.appointments();
     const add = await priya.call(ap.POST, {
-      pin: "3333",
       doctor: "Dr. Sharma",
       place: "Aliganj",
       scheduled_at: "2026-11-19T11:15",
@@ -224,7 +216,6 @@ describe("role rules", () => {
     expect(
       (
         await priya.call(ap.POST, {
-          pin: "3333",
           id: add.json.id,
           doctor: "Dr. Sharma",
           place: "Room 4",
@@ -232,9 +223,9 @@ describe("role rules", () => {
         })
       ).status,
     ).toBe(200);
-    expect(
-      (await sunita.call(ap.POST, { pin: "2222", doctor: "x", place: "y", scheduled_at: "2026-11-19T11:30" })).status,
-    ).toBe(403);
+    expect((await sunita.call(ap.POST, { doctor: "x", place: "y", scheduled_at: "2026-11-19T11:30" })).status).toBe(
+      403,
+    );
   });
 });
 
@@ -249,11 +240,10 @@ describe("isolation and security", () => {
       city: "Pune",
       language: "English",
       role: "elder",
-      pin: "1111",
     });
     const id = await todaySlotId(kamla);
     // outsider cannot touch Kamla's slot: id not found in *their* household
-    const res = await outsider.call((await r.confirm()).POST, { doseSlotId: id, pin: "1111" });
+    const res = await outsider.call((await r.confirm()).POST, { doseSlotId: id });
     expect(res.status).toBe(404);
     // and cannot switch into the real household
     const sel = await import("../src/app/api/households/select/route");
@@ -284,7 +274,6 @@ describe("reminders and skips", () => {
         city: "Jaipur",
         language: "English",
         role: "elder",
-        pin: "1111",
       })
     ).json.householdId as string;
     const pr = await r.proposals();
@@ -293,21 +282,17 @@ describe("reminders and skips", () => {
       ["Glycomet 500", "23:50"],
     ]) {
       const p = await elder.call(pr.POST, {
-        pin: "1111",
         kind: "add",
         payload: { name, dose: "1 tablet", schedule_time: t },
       });
       expect(p.status).toBe(200);
-      if (p.json.proposalId)
-        await elder.call(pr.PATCH, { pin: "1111", proposalId: p.json.proposalId, decision: "accept" }, "PATCH");
+      if (p.json.proposalId) await elder.call(pr.PATCH, { proposalId: p.json.proposalId, decision: "accept" }, "PATCH");
     }
     const st = await elder.get((await r.state()).GET);
     expect(st.json.doseSlots.length).toBe(2);
     const pending = st.json.doseSlots.find((s: { status: string }) => s.status === "pending");
     const before = st.json.adherence;
-    expect(
-      (await elder.call((await r.skip()).POST, { doseSlotId: pending.id, pin: "1111", reason: "Fasting" })).status,
-    ).toBe(200);
+    expect((await elder.call((await r.skip()).POST, { doseSlotId: pending.id, reason: "Fasting" })).status).toBe(200);
     const after = (await elder.get((await r.state()).GET)).json.adherence;
     expect(after.skipped).toBe(before.skipped + 1);
     expect(after.missed).toBe(before.missed);
@@ -389,21 +374,18 @@ describe("AI guards", () => {
     await query("UPDATE memberships SET lockout_until = NULL, failed_attempts = 0");
     const pr = await r.proposals();
     const add = await priya.call(pr.POST, {
-      pin: "3333",
       kind: "add",
       payload: { name: "Thyronorm 50", schedule_time: "06:30" },
     });
-    await kamla.call(pr.PATCH, { pin: "1111", proposalId: add.json.proposalId, decision: "accept" }, "PATCH");
+    await kamla.call(pr.PATCH, { proposalId: add.json.proposalId, decision: "accept" }, "PATCH");
     const st = await priya.get((await r.state()).GET);
     expect(st.json.medicines.some((m: { name: string }) => m.name === "Thyronorm 50")).toBe(true);
     const bad = await priya.call(pr.POST, {
-      pin: "3333",
       kind: "add",
       payload: { name: "Shelcal 500", schedule_time: "08:00" },
     });
     expect(bad.status).toBe(400);
     const ok = await priya.call(pr.POST, {
-      pin: "3333",
       kind: "add",
       payload: { name: "Shelcal 500", schedule_time: "16:00" },
     });
