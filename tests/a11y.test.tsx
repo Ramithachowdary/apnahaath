@@ -6,13 +6,15 @@ import { readdirSync, readFileSync } from "fs";
 import path from "path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import CareApp from "../src/components/CareApp";
+import AuthPage from "../src/components/AuthPage";
+import Landing from "../src/components/Landing";
 
 const root = path.resolve(__dirname, "..");
-/** The care app UI is split across CareApp.tsx and src/components/app/*; check them together. */
+/** The care app UI is split across CareApp.tsx, AuthPage.tsx and src/components/app/*; check them together. */
 const appSource = () =>
   [
     "src/components/CareApp.tsx",
+    "src/components/AuthPage.tsx",
     ...readdirSync(path.join(root, "src/components/app")).map((f) => `src/components/app/${f}`),
   ]
     .map((f) => readFileSync(path.join(root, f), "utf8"))
@@ -20,9 +22,9 @@ const appSource = () =>
 const css = readFileSync(path.join(root, "src/app/globals.css"), "utf8");
 /** Landing plus the separate sign-up and sign-in pages, where the account forms now live. */
 const landing = [
-  renderToStaticMarkup(<CareApp hasSession={false} />),
-  renderToStaticMarkup(<CareApp hasSession={false} view="signup" />),
-  renderToStaticMarkup(<CareApp hasSession={false} view="signin" />),
+  renderToStaticMarkup(<Landing />),
+  renderToStaticMarkup(<AuthPage view="signup" />),
+  renderToStaticMarkup(<AuthPage view="signin" />),
 ].join("\n");
 
 function hexToLum(hex: string) {
@@ -44,11 +46,11 @@ describe("accessibility", () => {
   });
 
   it("the landing page has no inline account form; sign-up and sign-in are separate pages", () => {
-    const home = renderToStaticMarkup(<CareApp hasSession={false} />);
+    const home = renderToStaticMarkup(<Landing />);
     expect(home).not.toMatch(/id="auth-email"/);
     expect(home).toMatch(/href="\/signup"/);
     expect(home).toMatch(/href="\/signin"/);
-    expect(renderToStaticMarkup(<CareApp hasSession={false} view="signup" />)).toMatch(/id="auth-name"/);
+    expect(renderToStaticMarkup(<AuthPage view="signup" />)).toMatch(/id="auth-name"/);
   });
 
   it("every form field on the landing page has a label (WCAG 1.3.1 / 4.1.2)", () => {

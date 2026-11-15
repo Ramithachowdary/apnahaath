@@ -1,6 +1,7 @@
 "use client";
 
 /** Signed-in shell: sidebar / bottom navigation and the active tab. */
+import dynamic from "next/dynamic";
 import { useState } from "react";
 import { HandHeart, LogOut } from "lucide-react";
 import type { State, Tab, View, ActFn } from "./types";
@@ -8,6 +9,21 @@ import { ROLE_LABEL, SUBTABS, SUB_ICON, TABS, TAB_ICON, TAB_SUB, VIEW_HOME } fro
 import { AppFooter, DisplayToggles } from "./ui";
 import { LanguageSelect, useT } from "./lang";
 import type { MsgKey } from "@/lib/i18n";
+import { Today } from "./Today";
+
+/** Shown for the moment a tab's code is loading. */
+const TabLoading = () => (
+  <p className="py-8 text-[var(--muted)]" aria-busy="true">
+    Loading…
+  </p>
+);
+// Today is the first screen; every other tab is code-split and fetched only when opened.
+const Medicines = dynamic(() => import("./Medicines").then((m) => m.Medicines), { loading: TabLoading });
+const History = dynamic(() => import("./History").then((m) => m.History), { loading: TabLoading });
+const WeeklySummary = dynamic(() => import("./History").then((m) => m.WeeklySummary), { loading: TabLoading });
+const Appointments = dynamic(() => import("./Appointments").then((m) => m.Appointments), { loading: TabLoading });
+const Safety = dynamic(() => import("./Safety").then((m) => m.Safety), { loading: TabLoading });
+const Circle = dynamic(() => import("./Circle").then((m) => m.Circle), { loading: TabLoading });
 
 /** Translation keys for section and tab names that the language file already covers. */
 const NAME_KEY: Record<string, string> = {
@@ -17,12 +33,6 @@ const NAME_KEY: Record<string, string> = {
   Appointments: "nav.appointments",
   History: "nav.history",
 };
-import { Today } from "./Today";
-import { Medicines } from "./Medicines";
-import { WeeklySummary, History } from "./History";
-import { Appointments } from "./Appointments";
-import { Safety } from "./Safety";
-import { Circle } from "./Circle";
 
 export function Dashboard({
   state,

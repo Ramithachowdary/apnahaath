@@ -8,7 +8,7 @@ import { parseBody, shortText } from "@/lib/validate";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** Skip with a reason — the elder's decision; never counted as missed. */
+/** Skip with a reason: the elder's decision; never counted as missed. */
 export async function POST(req: Request) {
   const a = await requireMember(["elder"]);
   if ("error" in a) return a.error;

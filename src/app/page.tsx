@@ -1,9 +1,10 @@
-import { cookies } from "next/headers";
-import CareApp from "@/components/CareApp";
-import { SESSION_COOKIE } from "@/lib/constants";
-import { googleConfigured } from "@/lib/google";
+import Landing from "@/components/Landing";
+import { DisplayToggles } from "@/components/app/ui";
 
-export default async function Home() {
-  const hasSession = Boolean((await cookies()).get(SESSION_COOKIE)?.value);
-  return <CareApp hasSession={hasSession} googleEnabled={googleConfigured()} view="landing" />;
+/**
+ * The public landing page is fully static (prerendered, CDN cacheable). Visitors who already have
+ * a session cookie are sent to /app by the middleware before this page is served.
+ */
+export default function Home() {
+  return <Landing toggles={<DisplayToggles />} />;
 }

@@ -9,7 +9,7 @@ import { parseBody, shortText } from "@/lib/validate";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** "I took it myself" — the elder records a medicine that is not on her list. */
+/** "I took it myself": the elder records a medicine that is not on her list. */
 export async function POST(req: Request) {
   const a = await requireMember(["elder"]);
   if ("error" in a) return a.error;
