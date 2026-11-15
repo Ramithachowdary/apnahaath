@@ -243,7 +243,7 @@ describe("GET /api/auth/google/callback", () => {
     listUserHouseholds.mockResolvedValue([{ id: "h1" }]);
     const res = await get("code=ok&state=state-value-1234567890");
     expect(res.status).toBe(307);
-    expect(res.headers.get("location")).toBe("https://apnahaath-care.vercel.app/");
+    expect(res.headers.get("location")).toBe("https://apnahaath-care.vercel.app/app");
     expect(res.headers.get("set-cookie") || "").toMatch(/apnahaath_session=/);
   });
 

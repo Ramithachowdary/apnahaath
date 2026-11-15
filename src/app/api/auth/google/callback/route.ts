@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   const base = appUrl();
   const fail = (why: string) => {
-    const r = NextResponse.redirect(`${base}/?auth_error=${why}`);
+    const r = NextResponse.redirect(`${base}/signin?auth_error=${why}`);
     r.cookies.set(GOOGLE_STATE_COOKIE, "", { path: "/api/auth/google", maxAge: 0 });
     return r;
   };
@@ -59,7 +59,7 @@ export async function GET(req: Request) {
     }
   }
   const hh = await listUserHouseholds(user.id);
-  const res = withSession(NextResponse.redirect(`${base}/`), user.id, hh[0]?.id ?? null);
+  const res = withSession(NextResponse.redirect(`${base}/${hh[0] ? "app" : "onboarding"}`), user.id, hh[0]?.id ?? null);
   res.cookies.set(GOOGLE_STATE_COOKIE, "", { path: "/api/auth/google", maxAge: 0 });
   return res;
 }

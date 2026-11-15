@@ -18,7 +18,12 @@ const appSource = () =>
     .map((f) => readFileSync(path.join(root, f), "utf8"))
     .join("\n");
 const css = readFileSync(path.join(root, "src/app/globals.css"), "utf8");
-const landing = renderToStaticMarkup(<CareApp hasSession={false} />);
+/** Landing plus the separate sign-up and sign-in pages, where the account forms now live. */
+const landing = [
+  renderToStaticMarkup(<CareApp hasSession={false} />),
+  renderToStaticMarkup(<CareApp hasSession={false} view="signup" />),
+  renderToStaticMarkup(<CareApp hasSession={false} view="signin" />),
+].join("\n");
 
 function hexToLum(hex: string) {
   const n = hex.replace("#", "");
@@ -36,6 +41,14 @@ const cssVar = (name: string) => new RegExp(`--${name}:\\s*(#[0-9a-fA-F]{6})`).e
 describe("accessibility", () => {
   it("the document declares its language (WCAG 3.1.1)", () => {
     expect(readFileSync(path.join(root, "src/app/layout.tsx"), "utf8")).toMatch(/<html lang="en">/);
+  });
+
+  it("the landing page has no inline account form; sign-up and sign-in are separate pages", () => {
+    const home = renderToStaticMarkup(<CareApp hasSession={false} />);
+    expect(home).not.toMatch(/id="auth-email"/);
+    expect(home).toMatch(/href="\/signup"/);
+    expect(home).toMatch(/href="\/signin"/);
+    expect(renderToStaticMarkup(<CareApp hasSession={false} view="signup" />)).toMatch(/id="auth-name"/);
   });
 
   it("every form field on the landing page has a label (WCAG 1.3.1 / 4.1.2)", () => {

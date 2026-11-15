@@ -5,5 +5,5 @@ import { googleConfigured } from "@/lib/google";
 
 export default async function Home() {
   const hasSession = Boolean((await cookies()).get(SESSION_COOKIE)?.value);
-  return <CareApp hasSession={hasSession} googleEnabled={googleConfigured()} />;
+  return <CareApp hasSession={hasSession} googleEnabled={googleConfigured()} view="landing" />;
 }

@@ -42,6 +42,6 @@ export async function POST(req: Request) {
     code,
     role: p.data.role,
     expiresAt: expires,
-    link: `${origin}/?invite=${code}`,
+    link: `${origin}/signup?invite=${code}`,
   });
 }
