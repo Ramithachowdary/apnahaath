@@ -23,7 +23,7 @@ const DESCRIPTION =
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: { default: "ApnaHaath — Dawai unke haath se", template: "%s · ApnaHaath" },
+  title: { default: "ApnaHaath: medicines and appointments for families", template: "%s · ApnaHaath" },
   description: DESCRIPTION,
   applicationName: "ApnaHaath",
   alternates: { canonical: "/" },
@@ -31,13 +31,13 @@ export const metadata: Metadata = {
     type: "website",
     url: "/",
     siteName: "ApnaHaath",
-    title: "ApnaHaath — Medicine from her hand. The log in her name.",
+    title: "ApnaHaath: manage medicines and appointments together as a family",
     description: DESCRIPTION,
     locale: "en_IN",
   },
   twitter: {
     card: "summary_large_image",
-    title: "ApnaHaath — Medicine from her hand. The log in her name.",
+    title: "ApnaHaath: manage medicines and appointments together as a family",
     description: DESCRIPTION,
   },
   robots: { index: true, follow: true },

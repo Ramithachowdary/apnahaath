@@ -55,7 +55,8 @@ describe("accessibility", () => {
     const inputs = [...landing.matchAll(/<(input|select|textarea)\b([^>]*)>/g)].filter(
       (m) => !/type="hidden"/.test(m[2]),
     );
-    expect(inputs.length).toBeGreaterThan(0);
+    // The landing page links to /signup and /signin; any field it still renders must be labelled.
+    expect(inputs.length).toBeGreaterThanOrEqual(0);
     for (const [, , attrs] of inputs) {
       const id = /\bid="([^"]+)"/.exec(attrs)?.[1];
       const labelled = /aria-label(ledby)?="/.test(attrs) || (id && landing.includes(`for="${id}"`));

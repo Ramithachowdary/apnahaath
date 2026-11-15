@@ -111,7 +111,7 @@ export async function redeemDoseToken(token: string, nowS = Date.now() / 1000): 
     actor_name: name,
     medicine_id: slot.medicine_id,
     dose_slot_id: slot.id,
-    payload: { via: "email_link", note: "Witness only — not counted as taken" },
+    payload: { via: "email_link", note: "Witness only, not counted as taken" },
   });
   return { ok: true, outcome: "witnessed", medicine };
 }

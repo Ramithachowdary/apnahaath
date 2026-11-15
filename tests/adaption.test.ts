@@ -58,7 +58,7 @@ describe("templateMessages", () => {
     expect(messages.family).toContain(`For the doctor: ${card.tell_doctor}`);
     expect(messages.family).toContain("No prescription or dose was changed by ApnaHaath.");
     expect(messages.family).toContain(EMERGENCY_LINE);
-    expect(messages.family).toMatch(/IST —/);
+    expect(messages.family).toMatch(/IST:/);
   });
 
   it("prefixes the elder's first name when the line has no ji", () => {

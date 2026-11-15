@@ -44,7 +44,7 @@ export async function issueOtp(userId: string, email: string, name: string, now 
       "",
       "It expires in 10 minutes. If you did not sign up, you can ignore this email.",
       "",
-      "— ApnaHaath (a care log, not a doctor). Emergency: call 108.",
+      "ApnaHaath (a care log, not a doctor). Emergency: call 108.",
     ].join("\n"),
   );
   // The code is never returned in production; tests and local dev without SMTP get it back to finish sign-up.

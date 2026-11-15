@@ -25,7 +25,7 @@ export async function POST(req: Request) {
     actor_name: a.ctx.user.name,
     medicine_id: slot.medicine_id,
     dose_slot_id: slot.id,
-    payload: { note: "Witness only — not counted as taken" },
+    payload: { note: "Witness only, not counted as taken" },
   });
   return NextResponse.json({ ok: true, eventId: id, doseStatusUnchanged: slot.status });
 }

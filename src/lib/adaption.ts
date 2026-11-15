@@ -40,7 +40,7 @@ export function templateMessages(card: DecisionCard, elderName: string): CareMes
       : `${elderName.split(" ")[0]} ji, ${card.elder_line_hi}`,
     caretaker: card.caretaker_line_hi,
     family: [
-      `${time} IST — ${card.title}`,
+      `${time} IST: ${card.title}`,
       card.family_line_en,
       `For the doctor: ${card.tell_doctor}`,
       "No prescription or dose was changed by ApnaHaath.",

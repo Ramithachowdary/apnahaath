@@ -11,7 +11,7 @@ export async function deliverOutboxRow(row: ReminderOutbox, outboxOnly = false, 
     await updateOutboxStatus(
       row.id,
       "mock",
-      outboxOnly ? "Demo household — in-app outbox only" : "SMTP not configured — in-app outbox only",
+      outboxOnly ? "Demo household: in-app outbox only" : "SMTP not configured: in-app outbox only",
     );
     return;
   }

@@ -84,13 +84,13 @@ describe("deliverOutboxRow", () => {
     process.env.GMAIL_USER = "bot@gmail.com";
     process.env.GMAIL_APP_PASSWORD = "secret";
     await deliverOutboxRow(row(), true);
-    expect(update).toHaveBeenCalledWith("out-1", "mock", "Demo household — in-app outbox only");
+    expect(update).toHaveBeenCalledWith("out-1", "mock", "Demo household: in-app outbox only");
     expect(sendMail).not.toHaveBeenCalled();
   });
 
   it("marks the row as mock when SMTP is not configured", async () => {
     await deliverOutboxRow(row());
-    expect(update).toHaveBeenCalledWith("out-1", "mock", "SMTP not configured — in-app outbox only");
+    expect(update).toHaveBeenCalledWith("out-1", "mock", "SMTP not configured: in-app outbox only");
   });
 
   it("sends the email and appends a private footer that never goes to the shared outbox", async () => {

@@ -126,10 +126,10 @@ describe("POST /api/brief", () => {
 
   it("returns the generated doctor brief", async () => {
     requireMember.mockResolvedValue({ ctx });
-    generateDoctorBrief.mockResolvedValue("Doctor brief — Kamla Devi");
+    generateDoctorBrief.mockResolvedValue("Doctor brief: Kamla Devi");
     const { POST } = await import("../src/app/api/brief/route");
     const res = await POST();
-    expect(await res.json()).toEqual({ brief: "Doctor brief — Kamla Devi" });
+    expect(await res.json()).toEqual({ brief: "Doctor brief: Kamla Devi" });
     expect(generateDoctorBrief).toHaveBeenCalledWith("h1", "Kamla Devi");
   });
 });

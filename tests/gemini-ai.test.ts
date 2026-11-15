@@ -181,7 +181,7 @@ describe("generateDoctorBrief", () => {
       },
     ] as never);
     const brief = await generateDoctorBrief("hh", "Kamla Devi");
-    expect(brief).toMatch(/Doctor brief — Kamla Devi/);
+    expect(brief).toMatch(/Doctor brief: Kamla Devi/);
     expect(brief).toMatch(/elder_confirmed/);
     expect(brief).toMatch(/No prescriptions were changed/);
   });
@@ -204,7 +204,7 @@ describe("generateDoctorBrief", () => {
     listEv.mockResolvedValue([]);
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(geminiResponse("Please double the dose of Thyronorm tonight.")));
     const brief = await generateDoctorBrief("hh", "Kamla Devi");
-    expect(brief).toMatch(/Doctor brief — Kamla Devi/);
+    expect(brief).toMatch(/Doctor brief: Kamla Devi/);
     expect(brief).not.toMatch(/double the dose/);
   });
 
@@ -213,7 +213,7 @@ describe("generateDoctorBrief", () => {
     listEv.mockResolvedValue([]);
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network")));
     const brief = await generateDoctorBrief("hh", "Kamla Devi");
-    expect(brief).toMatch(/Doctor brief — Kamla Devi/);
+    expect(brief).toMatch(/Doctor brief: Kamla Devi/);
   });
 
   it("strips markdown and a trailing consult-the-doctor sign-off", async () => {

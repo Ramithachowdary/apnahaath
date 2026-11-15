@@ -106,10 +106,10 @@ export function templateWeeklySummary(st: WeekStats, elderName: string): WeeklyS
     ].join("\n"),
     family: [
       `Week ${st.from} to ${st.to} (IST)`,
-      `Elder-confirmation rate: ${rate} — ${st.confirmed} confirmed, ${st.missed} missed, ${st.skipped} skipped with a reason, ${st.witnessed} witnessed by the caretaker.`,
+      `Elder-confirmation rate: ${rate}: ${st.confirmed} confirmed, ${st.missed} missed, ${st.skipped} skipped with a reason, ${st.witnessed} witnessed by the caretaker.`,
       `Skip reasons: ${reasons}.`,
       st.selfAdded
-        ? `${first} added ${st.selfAdded} medicine(s) herself — check the safety notes.`
+        ? `${first} added ${st.selfAdded} medicine(s) herself. Check the safety notes.`
         : `No self-added medicines this week.`,
       st.mostMissed
         ? `Most missed: ${st.mostMissed}. Worth mentioning at the next doctor visit.`

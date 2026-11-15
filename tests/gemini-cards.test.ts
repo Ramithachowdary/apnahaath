@@ -173,7 +173,7 @@ describe("generateDoctorBrief", () => {
   it("returns the structured log when no Gemini key is set", async () => {
     delete process.env.GEMINI_API_KEY;
     const brief = await generateDoctorBrief("hh-1", "Kamla Devi");
-    expect(brief).toContain("Doctor brief — Kamla Devi");
+    expect(brief).toContain("Doctor brief: Kamla Devi");
     expect(brief).toContain(MEDICAL_DISCLAIMER);
     expect(brief).toContain("elder_confirmed by Kamla");
     expect(brief).toContain("No prescriptions were changed by software.");
@@ -208,10 +208,10 @@ describe("generateDoctorBrief", () => {
       }),
     );
     const mutated = await generateDoctorBrief("hh-1", "Kamla Devi");
-    expect(mutated).toContain("Doctor brief — Kamla Devi");
+    expect(mutated).toContain("Doctor brief: Kamla Devi");
 
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network")));
     const failed = await generateDoctorBrief("hh-1", "Kamla Devi");
-    expect(failed).toContain("Doctor brief — Kamla Devi");
+    expect(failed).toContain("Doctor brief: Kamla Devi");
   });
 });

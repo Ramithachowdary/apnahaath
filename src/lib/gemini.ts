@@ -152,7 +152,7 @@ export function offlineBrufenCard(hh: string, sourceEventId: string | null): Dec
     household_id: hh,
     source_event_id: sourceEventId,
     severity: "review_required",
-    title: "Brufen + Ecosprin — illustrative safety review",
+    title: "Brufen + Ecosprin: illustrative safety review",
     elder_line_hi:
       "Kamla ji, taking Brufen together with Ecosprin can raise the risk of bleeding. Nothing in your medicines was changed. Please talk to your doctor.",
     caretaker_line_hi:
@@ -187,7 +187,7 @@ export async function generateDecisionCard(input: {
     elder_line_hi:
       "This note was made without AI. None of your medicines were changed. Ask your doctor if you have questions.",
     caretaker_line_hi: "Follow Kamla ji's own record. Only she can mark a dose as taken.",
-    family_line_en: `Safety note (made without AI) — ${why}. No prescription changes.`,
+    family_line_en: `Safety note (made without AI): ${why}. No prescription changes.`,
     tell_doctor: "Review the week's ApnaHaath event log.",
     disclaimer: MEDICAL_DISCLAIMER,
     emergency_line: EMERGENCY_LINE,
@@ -276,7 +276,7 @@ export async function generateDoctorBrief(hh: string, elderName: string): Promis
     (e) => `- ${e.created_at}: ${e.type} by ${e.actor_name}${e.medicine_id ? ` (${e.medicine_id})` : ""}`,
   );
   const base = [
-    `Doctor brief — ${elderName} (ApnaHaath care log)`,
+    `Doctor brief: ${elderName} (ApnaHaath care log)`,
     MEDICAL_DISCLAIMER,
     EMERGENCY_LINE,
     "",

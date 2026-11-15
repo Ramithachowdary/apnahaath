@@ -1,139 +1,147 @@
 "use client";
 
+import { useState } from "react";
 import {
   ArrowRight,
   BellRing,
-  Brain,
   CalendarClock,
   CheckCircle2,
   ClipboardList,
   Eye,
+  FileText,
   HandHeart,
   LockKeyhole,
-  MessageCircleHeart,
+  Menu,
   Phone,
   Pill,
   ShieldCheck,
-  Sparkles,
   UserPlus,
   Users,
+  X,
 } from "lucide-react";
 import { LanguageSelect, useT } from "./app/lang";
+
+/** Where the landing page CTAs send people. */
+const SIGNUP_HREF = "/signup";
+const SIGNIN_HREF = "/signin";
+
+const NAV = [
+  { href: "#how", key: "landing.how" },
+  { href: "#roles", key: "landing.families" },
+  { href: "#safety", key: "landing.ai" },
+  { href: "#faq", key: "landing.faq" },
+] as const;
+
+const HERO_POINTS = [
+  { icon: HandHeart, text: "The older adult confirms their own medicines." },
+  { icon: Eye, text: "Caregivers record doses they see being taken." },
+  { icon: BellRing, text: "Family members get reminders and updates." },
+  { icon: ShieldCheck, text: "Safety checks can flag possible medicine risks." },
+];
 
 const STEPS = [
   {
     icon: UserPlus,
     title: "Create a care circle",
-    text: "Sign up, add your elder's name and choose your role. Every change is saved under your own account.",
+    text: "Create an account and add the older adult's profile.",
   },
   {
     icon: Users,
-    title: "Invite the people who help",
-    text: "Send one-time invite links to the elder, the caretaker and family — by copy, share or WhatsApp.",
+    title: "Invite family and caregivers",
+    text: "Invite the people who help with daily care.",
   },
   {
     icon: Pill,
-    title: "Add medicines, she decides",
-    text: "Family suggests medicines and times; the elder accepts. Then she marks each dose herself.",
+    title: "Add medicines and appointments",
+    text: "Set up the schedule. The older adult reviews changes and confirms each dose.",
   },
 ];
 
 const ROLES = [
   {
     icon: HandHeart,
-    who: "Elder",
-    title: "In charge of her own medicines",
-    points: [
-      "Big, simple “Yes, I took it” buttons",
-      "Skip with a reason — never counted as missed",
-      "Accepts or declines every suggested change",
-    ],
+    who: "Older adult",
+    title: "You stay in control",
+    points: ["Confirm your own medicines.", "Skip a dose with a reason.", "Accept or reject suggested changes."],
   },
   {
     icon: Eye,
-    who: "Caretaker",
-    title: "Witness, not author",
+    who: "Caregiver",
+    title: "Help with daily care",
     points: [
-      "“I saw her take it” is recorded separately",
-      "Can never mark a dose as taken",
-      "Today's list at a glance",
+      "Record medicines you personally witness.",
+      "View today's medication schedule.",
+      "Help maintain the daily routine.",
     ],
   },
   {
     icon: Users,
     who: "Family",
-    title: "Peace of mind from anywhere",
-    points: [
-      "Email reminders for upcoming and missed doses",
-      "Appointments and a printable doctor memo",
-      "Suggest changes — nothing changes until she says yes",
-    ],
+    title: "Stay informed",
+    points: ["Track medication updates.", "Receive reminders.", "Help manage appointments and care schedules."],
   },
 ];
 
-const AI = [
+const CHECKS = [
   {
     icon: ShieldCheck,
-    title: "Gemini safety check",
-    text: "Google Gemini reads the medicine list and the log and warns about risks — like a self-taken painkiller next to a blood thinner. It can only warn: any answer that tries to change a dose is thrown away in code.",
+    title: "Medicine safety checks",
+    text: "The system can flag possible medicine interactions for review.",
   },
   {
-    icon: MessageCircleHeart,
-    title: "Care messages by Adaption",
-    text: "One safety note becomes three kind, role-specific messages — for the elder, the caretaker and the family — with the same no-dose-change guard.",
+    icon: Users,
+    title: "Clear family updates",
+    text: "Each person receives information relevant to their role.",
   },
   {
-    icon: Sparkles,
-    title: "Weekly summary in plain words",
-    text: "Numbers are counted in code from the log; AI only words them. Copy it to the family WhatsApp group in one tap.",
+    icon: FileText,
+    title: "Weekly care summary",
+    text: "See medication activity and missed confirmations for the week.",
   },
+];
+
+const TRUST = [
+  { icon: Users, text: "Only invited members can see the care circle." },
+  { icon: ClipboardList, text: "Every action is recorded under the person's name." },
+  { icon: HandHeart, text: "Only the older adult can confirm their own dose." },
+  { icon: LockKeyhole, text: "Reminder emails don't show medicine names in the subject." },
+];
+
+const FACTS = [
+  "Many older adults take several medicines every day.",
+  "Often more than one person helps: family, a caregiver, a neighbour.",
+  "Without one shared record, it is hard to know who gave what, and when.",
+];
+
+const COMPARE: { feature: string; us: string; reminder: string; whatsapp: string }[] = [
+  { feature: "The older adult confirms each dose", us: "Yes", reminder: "No", whatsapp: "No" },
+  { feature: "Caregiver doses recorded as witnessed", us: "Yes", reminder: "No", whatsapp: "No" },
+  { feature: "A record nobody can quietly edit", us: "Yes", reminder: "No", whatsapp: "No" },
+  { feature: "One-page summary for the doctor", us: "Yes", reminder: "No", whatsapp: "No" },
+  { feature: "Whole family sees the same record", us: "Yes", reminder: "No", whatsapp: "Partly, in chat" },
 ];
 
 const FAQ = [
   {
     q: "Who can mark a dose as taken?",
-    a: "Only the elder, from her own account. A caretaker's tap is saved as a witness and never counts as taken.",
+    a: "Only the older adult, from their own account. When a caregiver records a dose, it is saved as witnessed, not as taken.",
   },
   {
-    q: "Can the AI change a prescription?",
-    a: "No. AI output is checked in code and rejected if it tries to start, stop or change any medicine. Only the elder accepts changes, and medicine decisions belong with her doctor.",
+    q: "Can the app change a prescription?",
+    a: "No. Safety checks can only warn. Anything that tries to start, stop or change a medicine is blocked. Medicine decisions stay with the doctor.",
   },
   {
     q: "Who gets the reminder emails?",
-    a: "Family members get upcoming, missed-dose and appointment reminders. The elder can also get her own one-tap “I took it” link. Skips are never reported as missed.",
+    a: "Family members get reminders for upcoming doses, missed doses and appointments. The older adult can also get a one-tap link to confirm a dose. A skipped dose is never reported as missed.",
   },
   {
-    q: "Is my family's data private?",
-    a: "Each care circle is isolated. Passwords are stored only as secure hashes, and every request is checked against your role in that circle.",
+    q: "Is my family's information private?",
+    a: "Yes. Each care circle is separate, and only invited members can see it. Passwords are never stored in plain text.",
   },
   {
     q: "Is ApnaHaath a medical device?",
-    a: "No. It is a care log and a safety net, not a doctor. In an emergency call 108 or go to the nearest hospital.",
+    a: "No. It is a care record, not a doctor. In an emergency, call 108 or go to the nearest hospital.",
   },
-];
-
-const OUTCOMES = [
-  {
-    title: "Know every dose was taken, by her, on time",
-    text: "Only the elder's own account can mark a dose taken. A caretaker's tap is saved as a witness, never as taken.",
-  },
-  {
-    title: "One shared record for family, caretaker and doctor",
-    text: "Doses, skips, appointments and changes in one append-only log, with a one-page brief for the doctor.",
-  },
-  {
-    title: "A safety check before a new medicine",
-    text: "Before a new tablet goes in, ApnaHaath flags known clashes with what she already takes. It warns; it never changes a dose.",
-  },
-];
-
-const COMPARE: { feature: string; us: string; reminder: string; whatsapp: string }[] = [
-  { feature: "Dose confirmed by the elder herself", us: "Yes", reminder: "No", whatsapp: "No" },
-  { feature: "Caretaker logged as witness, not as taken", us: "Yes", reminder: "No", whatsapp: "No" },
-  { feature: "Append-only log nobody can quietly edit", us: "Yes", reminder: "No", whatsapp: "No" },
-  { feature: "One-page brief for the doctor", us: "Yes", reminder: "No", whatsapp: "No" },
-  { feature: "AI that can never change a dose", us: "Yes", reminder: "Not applicable", whatsapp: "No" },
-  { feature: "Family sees the same record", us: "Yes", reminder: "No", whatsapp: "Partly, in chat" },
 ];
 
 function Mockup() {
@@ -141,182 +149,276 @@ function Mockup() {
     {
       name: "Thyronorm 50",
       time: "6:30 AM",
-      chip: "Confirmed by Amma",
+      chip: "Confirmed",
       cls: "bg-emerald-50 text-emerald-800 ring-emerald-200",
       Icon: CheckCircle2,
     },
-    { name: "Telma 40", time: "8:00 AM", chip: "Witnessed", cls: "bg-sky-50 text-sky-800 ring-sky-200", Icon: Eye },
+    {
+      name: "Telma 40",
+      time: "8:00 AM",
+      chip: "Witnessed",
+      cls: "bg-sky-50 text-sky-800 ring-sky-200",
+      Icon: Eye,
+    },
     {
       name: "Shelcal 500",
       time: "4:00 PM",
-      chip: "Skipped · fasting",
+      chip: "Skipped",
       cls: "bg-amber-50 text-amber-900 ring-amber-200",
       Icon: CalendarClock,
     },
   ];
   return (
-    <div aria-hidden="true" className="relative mx-auto h-[600px] w-full max-w-[300px] sm:max-w-lg">
-      {/* phone: elder view */}
-      <div className="absolute left-0 top-0 w-[290px] rounded-[2.5rem] border-[10px] border-stone-900 bg-white p-4 shadow-[0_30px_80px_-20px_rgba(15,92,76,0.45)]">
-        <div className="mx-auto mb-3 h-1.5 w-16 rounded-full bg-stone-200" />
+    <figure className="relative mx-auto w-full max-w-[560px] xl:h-[600px]">
+      <figcaption className="sr-only">
+        Example screens: the older adult&apos;s medicine confirmation, a safety alert and a weekly family summary.
+      </figcaption>
+      {/* phone: older adult's view */}
+      <div
+        aria-hidden="true"
+        className="mx-auto w-[280px] max-w-full rounded-[2.25rem] border-[9px] border-stone-900 bg-white p-4 shadow-[0_24px_60px_-24px_rgba(15,92,76,0.45)] xl:absolute xl:left-[120px] xl:top-0"
+      >
+        <div className="mx-auto mb-3 h-1.5 w-14 rounded-full bg-stone-200" />
         <p className="text-sm font-semibold text-[var(--muted)]">Namaste, Amma</p>
-        <p className="text-xl font-extrabold">Glycomet 500</p>
-        <p className="text-[var(--muted)]">1:30 PM · with lunch</p>
-        <div className="mt-4 grid place-items-center rounded-3xl bg-[var(--brand)] py-7 text-2xl font-extrabold text-white shadow-lg">
-          <Pill size={34} className="mb-1" /> Yes, I took it
+        <p className="text-xl font-bold">Glycomet 500</p>
+        <p className="text-[var(--muted)]">1:30 PM, with lunch</p>
+        <div className="mt-4 grid place-items-center rounded-2xl bg-[var(--brand)] py-6 text-xl font-bold text-white">
+          <Pill size={30} className="mb-1" /> Yes, I took it
         </div>
         <div className="mt-3 grid grid-cols-2 gap-2 text-center text-sm font-semibold">
-          <div className="rounded-2xl border border-stone-200 py-3">Not now</div>
-          <div className="rounded-2xl border border-stone-200 py-3">Later</div>
+          <div className="rounded-xl border border-stone-200 py-3">Skip</div>
+          <div className="rounded-xl border border-stone-200 py-3">Later</div>
         </div>
         <div className="mt-4 space-y-2">
           {rows.map((r) => (
             <div
               key={r.name}
-              className="flex items-center justify-between rounded-2xl border border-stone-100 bg-stone-50 px-3 py-2"
+              className="flex items-center justify-between gap-2 rounded-xl border border-stone-100 bg-stone-50 px-3 py-2"
             >
-              <div>
+              <div className="min-w-0">
                 <p className="text-sm font-semibold">{r.name}</p>
                 <p className="text-xs text-[var(--muted)]">{r.time}</p>
               </div>
-              <span className={`chip px-2 py-0.5 text-xs ${r.cls}`}>
+              <span className={`chip shrink-0 whitespace-nowrap px-2 py-0.5 text-xs ${r.cls}`}>
                 <r.Icon size={13} /> {r.chip}
               </span>
             </div>
           ))}
         </div>
       </div>
-      {/* family card */}
-      <div className="absolute bottom-4 right-0 hidden w-[200px] rounded-2xl sm:block border border-stone-200 bg-white p-4 shadow-xl">
-        <p className="text-xs font-semibold uppercase tracking-wider text-[var(--muted)]">Family view · Priya</p>
-        <p className="mt-2 text-4xl font-extrabold text-[var(--brand)]">93%</p>
-        <p className="font-semibold">confirmed by Amma this week</p>
-        <div className="mt-3 flex gap-1">
-          {[1, 1, 1, 0.6, 1, 1, 1].map((v, i) => (
-            <span
-              key={i}
-              className="h-8 flex-1 rounded-md"
-              style={{ background: v === 1 ? "#0f766e" : "#f59e0b", opacity: v === 1 ? 0.85 : 1 }}
-            />
-          ))}
+
+      <div className="mx-auto mt-6 grid max-w-[560px] gap-3 sm:grid-cols-2 xl:mt-0 xl:contents">
+        {/* safety alert */}
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950 shadow-sm xl:absolute xl:left-0 xl:top-24 xl:w-[190px] xl:shadow-lg">
+          <p className="flex items-center gap-1.5 font-bold">
+            <ShieldCheck size={16} aria-hidden="true" /> Medicine safety alert
+          </p>
+          <p className="mt-1">Possible interaction detected. Ask a doctor or pharmacist to review it.</p>
         </div>
-        <p className="mt-1 text-xs text-[var(--muted)]">Mon – Sun</p>
+        {/* family adherence summary */}
+        <div className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm xl:absolute xl:bottom-10 xl:right-0 xl:w-[190px] xl:shadow-lg">
+          <p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Example screen · Family</p>
+          <p className="mt-2 text-lg font-bold leading-tight">6 of 7 doses confirmed</p>
+          <p className="text-3xl font-bold text-[var(--brand)]">86%</p>
+          <p className="text-sm text-[var(--muted)]">Confirmed by Amma this week</p>
+          <div className="mt-3 flex gap-1" aria-hidden="true">
+            {[1, 1, 1, 0, 1, 1, 1].map((v, i) => (
+              <span key={i} className={`h-6 flex-1 rounded ${v ? "bg-[#0f766e]" : "bg-amber-500"}`} />
+            ))}
+          </div>
+          <p className="mt-1 text-xs text-[var(--muted)]">Mon to Sun</p>
+        </div>
       </div>
-      {/* AI nudge */}
-      <div className="absolute right-0 top-12 hidden w-[200px] rounded-2xl sm:block border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 shadow-lg">
-        <p className="flex items-center gap-1 font-bold">
-          <ShieldCheck size={16} /> Gemini safety check
-        </p>
-        <p className="mt-1">
-          Brufen with Ecosprin may raise bleeding risk. Ask the doctor on Thursday. Nothing was changed.
-        </p>
-      </div>
-    </div>
+    </figure>
   );
 }
 
-export default function Landing({ invite, toggles }: { invite: string; toggles?: React.ReactNode }) {
+export default function Landing({ invite = "", toggles }: { invite?: string; toggles?: React.ReactNode }) {
   const { tr } = useT();
+  const [menuOpen, setMenuOpen] = useState(false);
   const q = invite ? `?invite=${encodeURIComponent(invite)}` : "";
+  const signupHref = SIGNUP_HREF + q;
+  const signinHref = SIGNIN_HREF + q;
+
   return (
-    <div className="min-h-screen">
-      <header className="sticky top-0 z-30 border-b border-stone-200/70 bg-white/85 backdrop-blur">
+    <div className="min-h-screen overflow-x-hidden">
+      <header className="sticky top-0 z-30 border-b border-stone-200 bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-3">
           <a href="#top" className="flex items-center gap-2 text-lg font-bold text-[var(--brand)]">
-            <HandHeart size={24} /> ApnaHaath
+            <HandHeart size={24} aria-hidden="true" /> ApnaHaath
           </a>
-          <nav
-            aria-label="Page sections"
-            className="hidden items-center gap-6 text-[15px] font-medium text-[var(--muted)] md:flex"
-          >
-            <a href="#how" className="hover:text-[var(--ink)]">
-              {tr("landing.how")}
-            </a>
-            <a href="#roles" className="hover:text-[var(--ink)]">
-              {tr("landing.families")}
-            </a>
-            <a href="#ai" className="hover:text-[var(--ink)]">
-              {tr("landing.ai")}
-            </a>
-            <a href="#faq" className="hover:text-[var(--ink)]">
-              {tr("landing.faq")}
-            </a>
+          <nav aria-label="Page sections" className="hidden items-center gap-6 text-[15px] font-medium md:flex">
+            {NAV.map((n) => (
+              <a key={n.href} href={n.href} className="text-[var(--muted)] hover:text-[var(--ink)]">
+                {tr(n.key)}
+              </a>
+            ))}
           </nav>
           <div className="flex items-center gap-2">
-            <LanguageSelect />
+            <LanguageSelect className="hidden sm:flex" />
             <span className="hidden sm:block">
-              <a className="btn-ghost" href={`/signin${q}`}>
+              <a className="btn-ghost" href={signinHref}>
                 {tr("landing.signIn")}
               </a>
             </span>
-            <a className="btn-primary whitespace-nowrap px-4" href={`/signup${q}`}>
+            <a className="btn-primary whitespace-nowrap px-4" href={signupHref}>
               {tr("landing.getStarted")}
             </a>
+            <button
+              type="button"
+              className="btn-ghost px-3 md:hidden"
+              aria-expanded={menuOpen}
+              aria-controls="mobile-menu"
+              aria-label={menuOpen ? "Close menu" : "Open menu"}
+              onClick={() => setMenuOpen((o) => !o)}
+            >
+              {menuOpen ? <X size={20} aria-hidden="true" /> : <Menu size={20} aria-hidden="true" />}
+            </button>
           </div>
         </div>
+        {menuOpen && (
+          <nav id="mobile-menu" aria-label="Menu" className="border-t border-stone-200 bg-white md:hidden">
+            <ul className="mx-auto grid max-w-6xl px-5 py-2">
+              {NAV.map((n) => (
+                <li key={n.href}>
+                  <a
+                    href={n.href}
+                    className="flex items-center py-3 text-lg font-medium"
+                    style={{ minHeight: 44 }}
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    {tr(n.key)}
+                  </a>
+                </li>
+              ))}
+              <li className="py-2">
+                <LanguageSelect />
+              </li>
+              <li>
+                <a
+                  href={signinHref}
+                  className="flex items-center py-3 text-lg font-semibold text-[var(--brand)]"
+                  style={{ minHeight: 44 }}
+                  onClick={() => setMenuOpen(false)}
+                >
+                  {tr("landing.signIn")}
+                </a>
+              </li>
+            </ul>
+          </nav>
+        )}
       </header>
 
       <main id="top">
-        <div className="bg-[radial-gradient(ellipse_at_top_left,rgba(15,118,110,0.14),transparent_55%),radial-gradient(ellipse_at_bottom_right,rgba(217,119,6,0.14),transparent_50%)]">
-          <section className="mx-auto grid max-w-6xl items-center gap-12 px-5 pb-20 pt-12 md:grid-cols-[1.1fr_1fr] md:pt-20">
+        <section className="border-b border-stone-200 bg-gradient-to-b from-[var(--soft)] to-white">
+          <div className="mx-auto grid max-w-6xl items-center gap-12 px-5 pb-16 pt-10 md:pt-16 lg:grid-cols-2">
             <div>
-              <p className="chip bg-white/80 text-[var(--brand)] ring-emerald-200">
-                <HandHeart size={15} /> {tr("landing.badge")}
-              </p>
-              <h1 className="mt-5 text-4xl font-extrabold leading-[1.08] md:text-6xl">
+              <p className="text-sm font-semibold uppercase tracking-wide text-[var(--brand)]">{tr("landing.badge")}</p>
+              <h1 className="mt-4 text-4xl font-bold leading-tight tracking-tight md:text-5xl">
                 {tr("landing.hero1")}
-                <span className="block bg-gradient-to-r from-[#0f766e] to-[#b45309] bg-clip-text text-transparent">
-                  {tr("landing.hero2")}
-                </span>
               </h1>
               <p className="mt-5 max-w-xl text-lg text-[var(--muted)]">{tr("landing.heroText")}</p>
               <div className="mt-8 flex flex-wrap gap-3">
-                <a className="btn-primary px-7 text-lg" href={`/signup${q}`}>
-                  {tr("landing.start")} <ArrowRight size={20} />
+                <a className="btn-primary px-6 text-lg" href={signupHref}>
+                  {tr("landing.start")} <ArrowRight size={20} aria-hidden="true" />
                 </a>
-                <a className="btn-ghost px-7 text-lg" href={`/signin${q}`}>
+                <a className="btn-ghost px-6 text-lg" href={signinHref}>
                   {tr("landing.signIn")}
                 </a>
               </div>
-              <p className="mt-4 flex flex-wrap gap-x-5 gap-y-1 text-sm text-[var(--muted)]">
+              <ul className="mt-8 grid gap-3 sm:grid-cols-2">
+                {HERO_POINTS.map((p) => (
+                  <li key={p.text} className="flex gap-2 text-[var(--ink)]">
+                    <p.icon size={20} className="mt-0.5 shrink-0 text-[var(--brand)]" aria-hidden="true" />
+                    {p.text}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-6 flex flex-wrap gap-x-5 gap-y-1 text-sm text-[var(--muted)]">
                 <span className="flex items-center gap-1">
-                  <CheckCircle2 size={16} className="text-[var(--ok)]" /> {tr("landing.free")}
+                  <CheckCircle2 size={16} className="text-[var(--ok)]" aria-hidden="true" /> {tr("landing.free")}
                 </span>
                 <span className="flex items-center gap-1">
-                  <CheckCircle2 size={16} className="text-[var(--ok)]" /> {tr("landing.anyPhone")}
+                  <CheckCircle2 size={16} className="text-[var(--ok)]" aria-hidden="true" /> {tr("landing.anyPhone")}
                 </span>
                 <span className="flex items-center gap-1">
-                  <CheckCircle2 size={16} className="text-[var(--ok)]" /> {tr("landing.aiNever")}
+                  <CheckCircle2 size={16} className="text-[var(--ok)]" aria-hidden="true" /> {tr("landing.aiNever")}
                 </span>
               </p>
             </div>
             <Mockup />
-          </section>
-        </div>
+          </div>
+        </section>
 
-        <section aria-labelledby="value-title" className="border-y border-stone-200 bg-white">
-          <div className="mx-auto max-w-6xl px-5 py-16">
-            <p className="text-sm font-semibold uppercase tracking-wide text-[var(--brand)]">
-              {tr("landing.whatYouGet")}
-            </p>
-            <h2 id="value-title" className="mt-2 text-3xl font-bold tracking-tight">
-              {tr("landing.valueTitle")}
+        <section aria-labelledby="why-title" className="border-b border-stone-200 bg-white">
+          <div className="mx-auto grid max-w-6xl gap-6 px-5 py-10 md:grid-cols-[1fr_2fr] md:items-start">
+            <h2 id="why-title" className="text-xl font-bold">
+              Why families use ApnaHaath
             </h2>
-            <ul className="mt-8 grid gap-4 md:grid-cols-3">
-              {OUTCOMES.map((o) => (
-                <li key={o.title} className="rounded-lg border border-stone-200 p-6">
-                  <h3 className="text-lg font-semibold leading-snug">{o.title}</h3>
-                  <p className="mt-2 text-[var(--muted)]">{o.text}</p>
+            <ul className="grid gap-3 sm:grid-cols-3">
+              {FACTS.map((f) => (
+                <li key={f} className="border-l-2 border-[var(--brand)] pl-3 text-[var(--ink)]">
+                  {f}
                 </li>
               ))}
             </ul>
+          </div>
+        </section>
 
-            <h2 className="mt-16 text-2xl font-bold tracking-tight">{tr("landing.whyNot")}</h2>
-            <p className="mt-2 max-w-2xl text-[var(--muted)]">
-              Reminders tell her when. They can&apos;t tell the family whether she actually took it, or who gave it.
+        <section id="how" className="scroll-mt-20 py-16">
+          <div className="mx-auto max-w-6xl px-5">
+            <h2 className="text-3xl font-bold tracking-tight">How it works</h2>
+            <p className="mt-2 text-lg text-[var(--muted)]">Three steps. No app store, no extra device.</p>
+            <ol className="mt-10 grid gap-8 md:grid-cols-3">
+              {STEPS.map((s, i) => (
+                <li key={s.title} className="flex gap-4">
+                  <span
+                    className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[var(--brand)] font-bold text-white"
+                    aria-hidden="true"
+                  >
+                    {i + 1}
+                  </span>
+                  <div>
+                    <p className="text-sm font-semibold text-[var(--muted)]">Step {i + 1}</p>
+                    <h3 className="text-xl font-bold">{s.title}</h3>
+                    <p className="mt-1 text-[var(--muted)]">{s.text}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </section>
+
+        <section id="roles" className="scroll-mt-20 border-y border-stone-200 bg-white py-16">
+          <div className="mx-auto max-w-6xl px-5">
+            <h2 className="text-3xl font-bold tracking-tight">One log, three clear roles</h2>
+            <p className="mt-2 text-lg text-[var(--muted)]">
+              The older adult decides. The caregiver helps. The family stays informed.
             </p>
-            <div className="mt-6 overflow-x-auto rounded-lg border border-stone-200">
-              <table className="w-full min-w-[560px] text-left text-sm">
+            <div className="mt-10 grid gap-px overflow-hidden rounded-xl border border-stone-200 bg-stone-200 md:grid-cols-3">
+              {ROLES.map((r) => (
+                <article key={r.who} className="bg-white p-6">
+                  <p className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-[var(--brand-2)]">
+                    <r.icon size={18} aria-hidden="true" /> {r.who}
+                  </p>
+                  <h3 className="mt-2 text-xl font-bold">{r.title}</h3>
+                  <ul className="mt-3 space-y-2">
+                    {r.points.map((p) => (
+                      <li key={p} className="flex gap-2 text-[var(--muted)]">
+                        <CheckCircle2 size={18} className="mt-0.5 shrink-0 text-[var(--ok)]" aria-hidden="true" /> {p}
+                      </li>
+                    ))}
+                  </ul>
+                </article>
+              ))}
+            </div>
+
+            <h3 className="mt-14 text-2xl font-bold tracking-tight">Why not just a reminder app?</h3>
+            <p className="mt-2 max-w-2xl text-[var(--muted)]">
+              A reminder says when to take a medicine. It cannot tell the family whether it was taken, or who gave it.
+            </p>
+            <div className="mt-6 overflow-x-auto rounded-xl border border-stone-200">
+              <table className="w-full min-w-[520px] text-left text-sm">
                 <caption className="sr-only">ApnaHaath compared with pill reminder apps and WhatsApp groups</caption>
                 <thead className="bg-stone-50 text-[var(--muted)]">
                   <tr>
@@ -351,161 +453,91 @@ export default function Landing({ invite, toggles }: { invite: string; toggles?:
           </div>
         </section>
 
-        <section aria-label="Why it matters" className="border-y border-amber-200/70 bg-amber-50/70">
-          <div className="mx-auto grid max-w-6xl gap-6 px-5 py-10 md:grid-cols-[1fr_1fr_1.2fr] md:items-center">
-            <div>
-              <p className="text-5xl font-extrabold text-[#b45309]">33.7%</p>
-              <p className="mt-1 text-[var(--ink)]">
-                of older adults in six Indian cities live with polypharmacy — many medicines at once.
-              </p>
-            </div>
-            <div>
-              <p className="text-5xl font-extrabold text-[#b45309]">19.7%</p>
-              <p className="mt-1 text-[var(--ink)]">
-                — about 1 in 5 — self-medicate, often without the family or doctor knowing.
-              </p>
-            </div>
-            <div className="rounded-2xl bg-white p-5 shadow-sm">
-              <p className="font-semibold">More medicines, more people helping — and nobody sure who gave what.</p>
-              <p className="mt-1 text-sm text-[var(--muted)]">
-                Source:{" "}
-                <a
-                  className="underline"
-                  href="https://www.nature.com/articles/s41598-024-84627-2"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Scientific Reports (Nature), 2025
-                </a>
-              </p>
-            </div>
-          </div>
-        </section>
-
-        <section id="roles" className="mx-auto max-w-6xl px-5 py-16">
-          <h2 className="text-3xl font-bold md:text-4xl">{tr("landing.rolesTitle")}</h2>
-          <p className="mt-2 text-lg text-[var(--muted)]">Everyone helps. Only the elder decides.</p>
-          <div className="mt-10 grid gap-6 md:grid-cols-3">
-            {ROLES.map((r) => (
-              <article key={r.who} className="panel">
-                <span className="grid h-11 w-11 place-items-center rounded-xl bg-orange-50 text-[var(--brand-2)]">
-                  <r.icon size={22} />
-                </span>
-                <p className="mt-4 text-sm font-bold uppercase tracking-wider text-[var(--brand-2)]">{r.who}</p>
-                <h3 className="mt-1 text-xl font-bold">{r.title}</h3>
-                <ul className="mt-3 space-y-2 text-[var(--muted)]">
-                  {r.points.map((p) => (
-                    <li key={p} className="flex gap-2">
-                      <CheckCircle2 size={18} className="mt-0.5 shrink-0 text-[var(--ok)]" /> {p}
-                    </li>
-                  ))}
-                </ul>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section id="how" className="border-y border-stone-200 bg-white py-16">
+        <section id="ai" aria-labelledby="checks-title" className="scroll-mt-20 py-16">
           <div className="mx-auto max-w-6xl px-5">
-            <h2 className="text-3xl font-bold md:text-4xl">{tr("landing.howTitle")}</h2>
-            <p className="mt-2 text-lg text-[var(--muted)]">Set up in five minutes. No hardware, no app store.</p>
-            <ol className="mt-10 grid gap-6 md:grid-cols-3">
-              {STEPS.map((s, i) => (
-                <li key={s.title} className="panel">
-                  <div className="flex items-center gap-3">
-                    <span className="grid h-11 w-11 place-items-center rounded-xl bg-[var(--soft)] text-[var(--brand)]">
-                      <s.icon size={22} />
-                    </span>
-                    <span className="text-sm font-semibold text-[var(--muted)]">Step {i + 1}</span>
-                  </div>
-                  <h3 className="mt-4 text-xl font-bold">{s.title}</h3>
-                  <p className="mt-2 text-[var(--muted)]">{s.text}</p>
-                </li>
-              ))}
-            </ol>
-          </div>
-        </section>
-
-        <section id="ai" className="bg-[#0b3d33] py-16 text-white">
-          <div className="mx-auto max-w-6xl px-5">
-            <p className="chip bg-white/10 text-emerald-100 ring-white/20">
-              <Brain size={15} /> AI that warns, never prescribes
-            </p>
-            <h2 className="mt-4 text-3xl font-bold md:text-4xl">{tr("landing.aiTitle")}</h2>
-            <div className="mt-10 grid gap-6 md:grid-cols-3">
-              {AI.map((a) => (
-                <article key={a.title} className="rounded-2xl border border-white/15 bg-white/5 p-6">
-                  <a.icon size={26} className="text-emerald-200" />
-                  <h3 className="mt-4 text-xl font-bold">{a.title}</h3>
-                  <p className="mt-2 text-emerald-50/90">{a.text}</p>
-                </article>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="mx-auto grid max-w-6xl gap-6 px-5 py-16 md:grid-cols-3">
-          <div className="panel md:col-span-2">
-            <h2 className="flex items-center gap-2 text-2xl font-bold">
-              <ShieldCheck className="text-[var(--brand)]" /> Safety and trust
+            <h2 id="checks-title" className="text-3xl font-bold tracking-tight">
+              Safety checks that only warn
             </h2>
-            <ul className="mt-4 grid gap-3 text-[var(--muted)] sm:grid-cols-2">
-              <li className="flex gap-2">
-                <LockKeyhole size={18} className="mt-1 shrink-0 text-[var(--brand)]" /> Every change is recorded under
-                the signed-in person and their role in the circle.
-              </li>
-              <li className="flex gap-2">
-                <ClipboardList size={18} className="mt-1 shrink-0 text-[var(--brand)]" /> An append-only log: who did
-                what, and when. Nothing is edited or deleted.
-              </li>
-              <li className="flex gap-2">
-                <BellRing size={18} className="mt-1 shrink-0 text-[var(--brand)]" /> Reminders never name a medicine in
-                the subject line, and skips are never called missed.
-              </li>
-              <li className="flex gap-2">
-                <Users size={18} className="mt-1 shrink-0 text-[var(--brand)]" /> Every care circle is private to its
-                invited members.
-              </li>
-            </ul>
-            <p className="mt-5 text-sm text-[var(--muted)]">
-              ApnaHaath is a care log. It is not a doctor, not a diagnosis and not a medical device. It does not start,
-              stop or change medicines.
+            <p className="mt-2 max-w-2xl text-lg text-[var(--muted)]">
+              AI can flag possible risks. It never prescribes, starts, stops or changes a dose. Always ask a doctor or
+              pharmacist.
             </p>
-          </div>
-          <div className="panel flex flex-col justify-center border-red-200 bg-red-50">
-            <Phone className="text-[var(--danger)]" size={28} />
-            <p className="mt-3 text-2xl font-bold text-[var(--danger)]">Emergency? Call 108.</p>
-            <p className="mt-1 text-red-900">Or go to the nearest hospital. ApnaHaath does not triage emergencies.</p>
+            <div className="mt-10 grid gap-8 md:grid-cols-3">
+              {CHECKS.map((c) => (
+                <div key={c.title}>
+                  <span className="grid h-11 w-11 place-items-center rounded-lg bg-[var(--soft)] text-[var(--brand)]">
+                    <c.icon size={22} aria-hidden="true" />
+                  </span>
+                  <h3 className="mt-4 text-xl font-bold">{c.title}</h3>
+                  <p className="mt-1 text-[var(--muted)]">{c.text}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </section>
 
-        <section className="mx-auto max-w-6xl px-5 pb-4">
-          <div className="flex flex-col items-start justify-between gap-6 rounded-3xl bg-gradient-to-r from-[#0f5c4c] to-[#0f766e] p-8 text-white md:flex-row md:items-center md:p-12">
+        <section id="safety" className="scroll-mt-20 border-y border-stone-200 bg-white py-16">
+          <div className="mx-auto grid max-w-6xl gap-10 px-5 md:grid-cols-[2fr_1fr]">
             <div>
-              <h2 className="text-3xl font-bold md:text-4xl">{tr("landing.ctaTitle")}</h2>
+              <h2 className="text-3xl font-bold tracking-tight">Your family&apos;s information stays protected</h2>
+              <ul className="mt-6 grid gap-4 sm:grid-cols-2">
+                {TRUST.map((t) => (
+                  <li key={t.text} className="flex gap-3">
+                    <t.icon size={20} className="mt-0.5 shrink-0 text-[var(--brand)]" aria-hidden="true" />
+                    <span>{t.text}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-6 text-sm text-[var(--muted)]">
+                ApnaHaath is a care record. It is not a doctor or a medical device.
+              </p>
+            </div>
+            <div className="rounded-xl border border-red-200 bg-red-50 p-6">
+              <p className="flex items-center gap-2 text-lg font-bold text-[var(--danger)]">
+                <Phone size={20} aria-hidden="true" /> In an emergency
+              </p>
+              <p className="mt-1 text-red-900">Call an ambulance or go to the nearest hospital.</p>
+              <a
+                href="tel:108"
+                className="btn mt-4 bg-[var(--danger)] px-5 text-lg text-white hover:opacity-90"
+                aria-label="Call 108 for an ambulance"
+              >
+                <Phone size={18} aria-hidden="true" /> Call 108
+              </a>
+            </div>
+          </div>
+        </section>
+
+        <section className="mx-auto max-w-6xl px-5 py-16">
+          <div className="flex flex-col items-start justify-between gap-6 rounded-2xl bg-[var(--brand)] p-8 text-white md:flex-row md:items-center md:p-10">
+            <div>
+              <h2 className="text-2xl font-bold md:text-3xl">{tr("landing.ctaTitle")}</h2>
               <p className="mt-2 text-lg text-emerald-50">{tr("landing.ctaText")}</p>
             </div>
-            <a className="btn bg-white px-7 text-lg text-[#0f5c4c] hover:bg-emerald-50" href={`/signup${q}`}>
-              {tr("landing.start")} <ArrowRight size={20} />
+            <a className="btn shrink-0 bg-white px-6 text-lg text-[var(--brand)] hover:bg-emerald-50" href={signupHref}>
+              {tr("landing.start")} <ArrowRight size={20} aria-hidden="true" />
             </a>
           </div>
         </section>
 
-        <section id="faq" className="mx-auto max-w-3xl px-5 py-16">
-          <h2 className="text-3xl font-bold md:text-4xl">{tr("landing.faqTitle")}</h2>
-          <div className="mt-8 divide-y divide-stone-200 rounded-2xl border border-stone-200 bg-white">
+        <section id="faq" className="mx-auto max-w-3xl scroll-mt-20 px-5 py-16">
+          <h2 className="text-3xl font-bold tracking-tight">{tr("landing.faqTitle")}</h2>
+          <div className="mt-8 divide-y divide-stone-200 rounded-xl border border-stone-200 bg-white">
             {FAQ.map((f) => (
-              <details key={f.q} className="group p-5">
+              <details key={f.q} className="group px-5 py-2">
                 <summary
-                  className="flex cursor-pointer list-none items-center justify-between gap-4 text-lg font-semibold"
+                  className="flex cursor-pointer list-none items-center justify-between gap-4 py-3 text-lg font-semibold"
                   style={{ minHeight: 44 }}
                 >
-                  {f.q}{" "}
-                  <span className="text-[var(--muted)] transition group-open:rotate-45" aria-hidden="true">
+                  {f.q}
+                  <span
+                    className="text-2xl leading-none text-[var(--brand)] transition group-open:rotate-45"
+                    aria-hidden="true"
+                  >
                     +
                   </span>
                 </summary>
-                <p className="mt-2 text-[var(--muted)]">{f.a}</p>
+                <p className="pb-4 text-[var(--muted)]">{f.a}</p>
               </details>
             ))}
           </div>
@@ -513,18 +545,12 @@ export default function Landing({ invite, toggles }: { invite: string; toggles?:
       </main>
 
       <footer className="border-t border-stone-200 bg-white">
-        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-5 py-8 md:flex-row md:items-start md:justify-between">
+        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-5 py-8 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="flex items-center gap-2 font-bold text-[var(--brand)]">
-              <HandHeart size={20} /> ApnaHaath
+              <HandHeart size={20} aria-hidden="true" /> ApnaHaath
             </p>
-            <p className="mt-1 max-w-md text-sm text-[var(--muted)]">
-              A care log, not a doctor. It does not start, stop or change medicines. Talk to a qualified doctor or
-              pharmacist.
-            </p>
-            <p className="mt-2 text-sm font-semibold text-[var(--danger)]">
-              Emergency: call 108 or go to the nearest hospital.
-            </p>
+            <p className="mt-1 text-sm text-[var(--muted)]">A care record for families. Not a medical device.</p>
           </div>
           {toggles}
         </div>

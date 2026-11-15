@@ -128,7 +128,7 @@ export async function runMorningCheck(
     const age = minutesSince(appt.scheduled_at);
     if (age >= -24 * 60 && age <= 60) {
       await queue("appointment", `appt:${appt.id}:${appt.scheduled_at}`, "ApnaHaath: appointment reminder", [
-        `${appt.doctor} at ${appt.place} — ${appt.scheduled_at.slice(0, 10)} ${formatTime12(appt.scheduled_at)} IST`,
+        `${appt.doctor} at ${appt.place}, ${appt.scheduled_at.slice(0, 10)} ${formatTime12(appt.scheduled_at)} IST`,
         appt.notes ?? "",
       ]);
     }

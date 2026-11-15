@@ -46,9 +46,9 @@ export async function POST(req: Request) {
   const r = await redeemDoseToken(t);
   if (!r.ok) return page("Not recorded", `<p>${esc(r.reason)}</p><a class="btn" href="/">Open ApnaHaath</a>`, r.status);
   return page(
-    r.outcome === "elder_confirmed" ? "Thank you — saved" : "Witness recorded",
+    r.outcome === "elder_confirmed" ? "Thank you, saved" : "Witness recorded",
     r.outcome === "elder_confirmed"
       ? `<p>${esc(r.medicine)} is marked as taken, in your name.</p>`
-      : `<p>You are recorded as a witness for ${esc(r.medicine)}. The dose is not marked as taken — only the elder can do that.</p>`,
+      : `<p>You are recorded as a witness for ${esc(r.medicine)}. The dose is not marked as taken. Only the elder can do that.</p>`,
   );
 }
