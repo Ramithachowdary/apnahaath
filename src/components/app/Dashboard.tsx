@@ -4,8 +4,19 @@
 import { useState } from "react";
 import { HandHeart, LogOut } from "lucide-react";
 import type { State, Tab, ActFn } from "./types";
-import { ROLE_LABEL, TABS, TAB_ICON, TAB_SUB } from "./constants";
+import { ROLE_LABEL, TABS, TAB_ICON } from "./constants";
 import { AppFooter, DisplayToggles } from "./ui";
+import { LanguageSelect, useT } from "./lang";
+import type { MsgKey } from "@/lib/i18n";
+
+const TAB_KEY: Record<Tab, string> = {
+  Today: "today",
+  Medicines: "medicines",
+  History: "history",
+  Appointments: "appointments",
+  "Care circle": "circle",
+  "Safety & AI": "safety",
+};
 import { Today } from "./Today";
 import { Medicines } from "./Medicines";
 import { WeeklySummary, History } from "./History";
@@ -29,6 +40,12 @@ export function Dashboard({
   onLogout: () => void;
 }) {
   const [tab, setTab] = useState<Tab>("Today");
+  const { tr } = useT();
+  const tabName = (t: Tab) => tr(`nav.${TAB_KEY[t]}` as MsgKey);
+  const tabShort = (t: Tab) =>
+    t === "Appointments" || t === "Care circle" || t === "Safety & AI"
+      ? tr(`navShort.${TAB_KEY[t]}` as MsgKey)
+      : tabName(t);
   const role = state.me.role;
   const pendingForElder = state.proposals.filter((p) => p.status === "pending");
   const go = (t: Tab) => {
@@ -45,10 +62,10 @@ export function Dashboard({
           <HandHeart size={24} aria-hidden="true" /> ApnaHaath
         </p>
         <div className="mt-6 rounded-2xl bg-[var(--soft)] p-4">
-          <p className="text-xs font-semibold uppercase tracking-wider text-[var(--muted)]">Care circle</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-[var(--muted)]">{tr("app.careCircle")}</p>
           <p className="mt-1 text-lg font-bold">{state.household.elder_name}</p>
           <p className="text-sm text-[var(--muted)]">
-            You: {state.me.name} · {ROLE_LABEL[role]}
+            {tr("app.you")}: {state.me.name} · {ROLE_LABEL[role]}
           </p>
         </div>
         <nav className="mt-6 space-y-1" aria-label="Sections">
@@ -56,7 +73,7 @@ export function Dashboard({
             const Icon = TAB_ICON[t];
             return (
               <button key={t} className="nav-item" aria-current={tab === t ? "page" : undefined} onClick={() => go(t)}>
-                <Icon size={20} aria-hidden="true" /> <span className="flex-1">{t}</span>
+                <Icon size={20} aria-hidden="true" /> <span className="flex-1">{tabName(t)}</span>
                 {badge(t) > 0 && (
                   <span className="rounded-full bg-[var(--brand-2)] px-2 text-xs font-bold text-white">{badge(t)}</span>
                 )}
@@ -65,9 +82,10 @@ export function Dashboard({
           })}
         </nav>
         <div className="mt-auto space-y-3">
+          <LanguageSelect className="px-2" />
           <DisplayToggles />
           <button className="nav-item" onClick={onLogout}>
-            <LogOut size={20} aria-hidden="true" /> Sign out
+            <LogOut size={20} aria-hidden="true" /> {tr("app.signOut")}
           </button>
         </div>
       </aside>
@@ -82,14 +100,17 @@ export function Dashboard({
               {state.household.elder_name} · you are {ROLE_LABEL[role]}
             </p>
           </div>
-          <button className="btn-ghost px-3" onClick={onLogout} aria-label="Sign out">
-            <LogOut size={18} aria-hidden="true" />
-          </button>
+          <div className="flex items-center gap-2">
+            <LanguageSelect />
+            <button className="btn-ghost px-3" onClick={onLogout} aria-label={tr("app.signOut")}>
+              <LogOut size={18} aria-hidden="true" />
+            </button>
+          </div>
         </header>
         <main className="mx-auto max-w-6xl px-4 py-6 pb-28 lg:px-10 lg:py-10">
           <div className="mb-6">
-            <h1 className="text-3xl font-bold">{tab}</h1>
-            <p className="mt-1 text-[var(--muted)]">{TAB_SUB[tab]}</p>
+            <h1 className="text-3xl font-bold">{tabName(tab)}</h1>
+            <p className="mt-1 text-[var(--muted)]">{tr(`sub.${TAB_KEY[tab]}` as MsgKey)}</p>
           </div>
           {tab === "Today" && <Today state={state} busy={busy} doAction={doAction} setMsg={setMsg} go={go} />}
           {tab === "Medicines" && <Medicines state={state} busy={busy} doAction={doAction} />}
@@ -123,9 +144,7 @@ export function Dashboard({
               onClick={() => go(t)}
             >
               <Icon size={22} aria-hidden="true" />
-              <span className="leading-tight">
-                {t === "Appointments" ? "Visits" : t === "Care circle" ? "Circle" : t === "Safety & AI" ? "Safety" : t}
-              </span>
+              <span className="leading-tight">{tabShort(t)}</span>
               {badge(t) > 0 && (
                 <span
                   className="absolute right-3 top-2 h-2.5 w-2.5 rounded-full bg-[var(--brand-2)]"

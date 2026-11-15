@@ -8,13 +8,17 @@ import { formatTime12 } from "@/lib/time";
 import { mapsSearchUrl } from "./format";
 import type { Me, State } from "./types";
 import { CHIP } from "./constants";
+import { useT } from "./lang";
+import type { MsgKey } from "@/lib/i18n";
 
 export function StatusChip({ status, extra }: { status: string; extra?: string | null }) {
+  const { tr } = useT();
   const c = CHIP[status] ?? CHIP.pending;
+  const key = `status.${CHIP[status] ? status : "pending"}` as MsgKey;
   return (
     <span className={`chip ${c.cls}`}>
       <c.Icon size={16} aria-hidden="true" />
-      {c.label}
+      {tr(key)}
       {extra ? ` · ${extra}` : ""}
     </span>
   );

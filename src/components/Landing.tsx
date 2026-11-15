@@ -20,6 +20,7 @@ import {
   UserPlus,
   Users,
 } from "lucide-react";
+import { LanguageSelect, useT } from "./app/lang";
 
 type AuthFn = (
   path: string,
@@ -235,6 +236,7 @@ export default function Landing({
   toggles?: React.ReactNode;
   googleEnabled?: boolean;
 }) {
+  const { tr } = useT();
   const [mode, setMode] = useState<"signup" | "login">("signup");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -275,26 +277,27 @@ export default function Landing({
             className="hidden items-center gap-6 text-[15px] font-medium text-[var(--muted)] md:flex"
           >
             <a href="#how" className="hover:text-[var(--ink)]">
-              How it works
+              {tr("landing.how")}
             </a>
             <a href="#roles" className="hover:text-[var(--ink)]">
-              For families
+              {tr("landing.families")}
             </a>
             <a href="#ai" className="hover:text-[var(--ink)]">
-              AI safety
+              {tr("landing.ai")}
             </a>
             <a href="#faq" className="hover:text-[var(--ink)]">
-              FAQ
+              {tr("landing.faq")}
             </a>
           </nav>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
+            <LanguageSelect />
             <span className="hidden sm:block">
               <a className="btn-ghost" href="#account" onClick={() => setMode("login")}>
-                Sign in
+                {tr("landing.signIn")}
               </a>
             </span>
             <a className="btn-primary whitespace-nowrap px-4" href="#account" onClick={() => setMode("signup")}>
-              Get started
+              {tr("landing.getStarted")}
             </a>
           </div>
         </div>
@@ -305,40 +308,32 @@ export default function Landing({
           <section className="mx-auto grid max-w-6xl items-center gap-12 px-5 pb-20 pt-12 md:grid-cols-[1.1fr_1fr] md:pt-20">
             <div>
               <p className="chip bg-white/80 text-[var(--brand)] ring-emerald-200">
-                <HandHeart size={15} /> For Indian families caring for an elder
+                <HandHeart size={15} /> {tr("landing.badge")}
               </p>
               <h1 className="mt-5 text-4xl font-extrabold leading-[1.08] md:text-6xl">
-                Dawai unke haath se.
+                {tr("landing.hero1")}
                 <span className="block bg-gradient-to-r from-[#0f766e] to-[#b45309] bg-clip-text text-transparent">
-                  Log unke naam se.
+                  {tr("landing.hero2")}
                 </span>
               </h1>
-              <p className="mt-3 text-xl font-medium text-[var(--ink)] md:text-2xl">
-                Medicine from her hands. The record in her name.
-              </p>
-              <p className="mt-5 max-w-xl text-lg text-[var(--muted)]">
-                Amma confirms her own doses with <strong className="text-[var(--ink)]">one big tap</strong>. The
-                caretaker can only witness. Family sees{" "}
-                <strong className="text-[var(--ink)]">real elder-confirmation</strong> — not fake “taken” ticks. And AI
-                catches risky combinations and writes kind, role-specific nudges.
-              </p>
+              <p className="mt-5 max-w-xl text-lg text-[var(--muted)]">{tr("landing.heroText")}</p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <a className="btn-primary px-7 text-lg" href="#account" onClick={() => setMode("signup")}>
-                  Start your care circle <ArrowRight size={20} />
+                  {tr("landing.start")} <ArrowRight size={20} />
                 </a>
                 <a className="btn-ghost px-7 text-lg" href="#account" onClick={() => setMode("login")}>
-                  Sign in
+                  {tr("landing.signIn")}
                 </a>
               </div>
               <p className="mt-4 flex flex-wrap gap-x-5 gap-y-1 text-sm text-[var(--muted)]">
                 <span className="flex items-center gap-1">
-                  <CheckCircle2 size={16} className="text-[var(--ok)]" /> Free
+                  <CheckCircle2 size={16} className="text-[var(--ok)]" /> {tr("landing.free")}
                 </span>
                 <span className="flex items-center gap-1">
-                  <CheckCircle2 size={16} className="text-[var(--ok)]" /> Works on any phone
+                  <CheckCircle2 size={16} className="text-[var(--ok)]" /> {tr("landing.anyPhone")}
                 </span>
                 <span className="flex items-center gap-1">
-                  <CheckCircle2 size={16} className="text-[var(--ok)]" /> AI never changes a dose
+                  <CheckCircle2 size={16} className="text-[var(--ok)]" /> {tr("landing.aiNever")}
                 </span>
               </p>
             </div>
@@ -348,9 +343,11 @@ export default function Landing({
 
         <section aria-labelledby="value-title" className="border-y border-stone-200 bg-white">
           <div className="mx-auto max-w-6xl px-5 py-16">
-            <p className="text-sm font-semibold uppercase tracking-wide text-[var(--brand)]">What you get</p>
+            <p className="text-sm font-semibold uppercase tracking-wide text-[var(--brand)]">
+              {tr("landing.whatYouGet")}
+            </p>
             <h2 id="value-title" className="mt-2 text-3xl font-bold tracking-tight">
-              A medicine record your whole family can trust
+              {tr("landing.valueTitle")}
             </h2>
             <ul className="mt-8 grid gap-4 md:grid-cols-3">
               {OUTCOMES.map((o) => (
@@ -361,7 +358,7 @@ export default function Landing({
               ))}
             </ul>
 
-            <h2 className="mt-16 text-2xl font-bold tracking-tight">Why not just a reminder app?</h2>
+            <h2 className="mt-16 text-2xl font-bold tracking-tight">{tr("landing.whyNot")}</h2>
             <p className="mt-2 max-w-2xl text-[var(--muted)]">
               Reminders tell her when. They can&apos;t tell the family whether she actually took it, or who gave it.
             </p>
@@ -433,7 +430,7 @@ export default function Landing({
         </section>
 
         <section id="roles" className="mx-auto max-w-6xl px-5 py-16">
-          <h2 className="text-3xl font-bold md:text-4xl">One log, three clear roles</h2>
+          <h2 className="text-3xl font-bold md:text-4xl">{tr("landing.rolesTitle")}</h2>
           <p className="mt-2 text-lg text-[var(--muted)]">Everyone helps. Only the elder decides.</p>
           <div className="mt-10 grid gap-6 md:grid-cols-3">
             {ROLES.map((r) => (
@@ -457,7 +454,7 @@ export default function Landing({
 
         <section id="how" className="border-y border-stone-200 bg-white py-16">
           <div className="mx-auto max-w-6xl px-5">
-            <h2 className="text-3xl font-bold md:text-4xl">How it works</h2>
+            <h2 className="text-3xl font-bold md:text-4xl">{tr("landing.howTitle")}</h2>
             <p className="mt-2 text-lg text-[var(--muted)]">Set up in five minutes. No hardware, no app store.</p>
             <ol className="mt-10 grid gap-6 md:grid-cols-3">
               {STEPS.map((s, i) => (
@@ -481,7 +478,7 @@ export default function Landing({
             <p className="chip bg-white/10 text-emerald-100 ring-white/20">
               <Brain size={15} /> AI that warns, never prescribes
             </p>
-            <h2 className="mt-4 text-3xl font-bold md:text-4xl">A second pair of eyes on every medicine</h2>
+            <h2 className="mt-4 text-3xl font-bold md:text-4xl">{tr("landing.aiTitle")}</h2>
             <div className="mt-10 grid gap-6 md:grid-cols-3">
               {AI.map((a) => (
                 <article key={a.title} className="rounded-2xl border border-white/15 bg-white/5 p-6">
@@ -532,17 +529,15 @@ export default function Landing({
         <section className="mx-auto max-w-6xl px-5 pb-4">
           <div className="flex flex-col items-start justify-between gap-6 rounded-3xl bg-gradient-to-r from-[#0f5c4c] to-[#0f766e] p-8 text-white md:flex-row md:items-center md:p-12">
             <div>
-              <h2 className="text-3xl font-bold md:text-4xl">Give Amma the pen — and the family peace of mind.</h2>
-              <p className="mt-2 text-lg text-emerald-50">
-                Set up a care circle in five minutes. Invite everyone on WhatsApp.
-              </p>
+              <h2 className="text-3xl font-bold md:text-4xl">{tr("landing.ctaTitle")}</h2>
+              <p className="mt-2 text-lg text-emerald-50">{tr("landing.ctaText")}</p>
             </div>
             <a
               className="btn bg-white px-7 text-lg text-[#0f5c4c] hover:bg-emerald-50"
               href="#account"
               onClick={() => setMode("signup")}
             >
-              Start your care circle <ArrowRight size={20} />
+              {tr("landing.start")} <ArrowRight size={20} />
             </a>
           </div>
         </section>
@@ -756,7 +751,7 @@ export default function Landing({
         </section>
 
         <section id="faq" className="mx-auto max-w-3xl px-5 py-16">
-          <h2 className="text-3xl font-bold md:text-4xl">Questions</h2>
+          <h2 className="text-3xl font-bold md:text-4xl">{tr("landing.faqTitle")}</h2>
           <div className="mt-8 divide-y divide-stone-200 rounded-2xl border border-stone-200 bg-white">
             {FAQ.map((f) => (
               <details key={f.q} className="group p-5">

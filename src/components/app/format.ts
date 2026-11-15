@@ -1,21 +1,23 @@
 /** Small, pure display helpers for the care app (UI only; no data access). */
 
-/** Part of the day for a clock time, in English with the everyday Hindi word, e.g. "Morning · subah". */
-export function dayPartLabel(value: string): string {
+import type { MsgKey } from "@/lib/i18n";
+
+/** Dictionary key for the part of the day of a clock time ("" when the time can't be read). */
+export function dayPartKey(value: string): MsgKey | "" {
   const m = /T(\d{2}):(\d{2})/.exec(value) || /^(\d{1,2}):(\d{2})/.exec(value);
   if (!m) return "";
   const h = Number(m[1]);
-  if (h >= 4 && h < 12) return "Morning · subah";
-  if (h >= 12 && h < 17) return "Afternoon · dopahar";
-  if (h >= 17 && h < 20) return "Evening · shaam";
-  return "Night · raat";
+  if (h >= 4 && h < 12) return "part.morning";
+  if (h >= 12 && h < 17) return "part.afternoon";
+  if (h >= 17 && h < 20) return "part.evening";
+  return "part.night";
 }
 
-/** Bilingual greeting for the IST hour: "Namaste" plus a time-of-day line. */
-export function greeting(hourIst: number): { hi: string; en: string } {
-  if (hourIst >= 4 && hourIst < 12) return { hi: "नमस्ते 🙏", en: "Good morning" };
-  if (hourIst >= 12 && hourIst < 17) return { hi: "नमस्ते 🙏", en: "Good afternoon" };
-  return { hi: "नमस्ते 🙏", en: "Good evening" };
+/** Dictionary key for the greeting at an IST hour. */
+export function greetingKey(hourIst: number): MsgKey {
+  if (hourIst >= 4 && hourIst < 12) return "greet.morning";
+  if (hourIst >= 12 && hourIst < 17) return "greet.afternoon";
+  return "greet.evening";
 }
 
 /** Current hour in Asia/Kolkata (0–23). */

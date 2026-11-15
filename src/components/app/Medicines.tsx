@@ -3,7 +3,7 @@
 /** Medicines tab: the list, family proposals and the elder accepting or declining them. */
 import { useState } from "react";
 import { formatTime12 } from "@/lib/time";
-import { dayPartLabel } from "./format";
+import { useT } from "./lang";
 import type { State } from "./types";
 import { api } from "./helpers";
 import { TimeField, Empty } from "./ui";
@@ -32,6 +32,7 @@ export function Medicines({
   busy: boolean;
   doAction: (fn: () => Promise<unknown>, ok?: string) => void;
 }) {
+  const { dayPart } = useT();
   const role = state.me.role;
   const [name, setName] = useState("");
   const [dose, setDose] = useState("");
@@ -63,7 +64,7 @@ export function Medicines({
                     {m.name} <span className="font-normal text-[var(--muted)]">{m.dose}</span>
                   </p>
                   <p className="text-[var(--muted)]">
-                    {formatTime12(m.schedule_time)} · {dayPartLabel(m.schedule_time)}
+                    {formatTime12(m.schedule_time)} · {dayPart(m.schedule_time)}
                     {m.instructions ? ` · ${m.instructions}` : ""}
                   </p>
                 </div>

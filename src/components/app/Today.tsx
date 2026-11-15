@@ -3,7 +3,8 @@
 /** Today tab: greeting, next-dose card, today's doses (elder confirms, caretaker witnesses) and self-reported medicines. */
 import { useState } from "react";
 import { Pill, Users } from "lucide-react";
-import { dayPartLabel, greeting, istHour } from "./format";
+import { greetingKey, istHour } from "./format";
+import { useT } from "./lang";
 import type { State, Tab } from "./types";
 import { SKIP_REASONS, STATUS_LABEL } from "./constants";
 import { api, time12, dayLabel } from "./helpers";
@@ -11,37 +12,38 @@ import { StatusChip, Stat, AddToGoogleCalendar } from "./ui";
 
 /** First-run checklist: the four steps that make the shared record useful. Hidden once all are done. */
 function SetupChecklist({ state, go }: { state: State; go: (t: Tab) => void }) {
+  const { tr } = useT();
   const confirmed =
     state.history.some((h) => h.status === "elder_confirmed") ||
     state.doseSlots.some((h) => h.status === "elder_confirmed");
   const steps: { label: string; hint: string; done: boolean; tab: Tab; cta: string }[] = [
     {
-      label: "Add medicines",
-      hint: "Each medicine with its time.",
+      label: tr("check.meds"),
+      hint: tr("check.medsHint"),
       done: state.medicines.length > 0,
       tab: "Medicines",
-      cta: "Add medicines",
+      cta: tr("check.medsCta"),
     },
     {
-      label: "Invite the elder and caretaker",
-      hint: "Everyone sees the same record.",
+      label: tr("check.invite"),
+      hint: tr("check.inviteHint"),
       done: state.members.length > 1,
       tab: "Care circle",
-      cta: "Invite",
+      cta: tr("check.inviteCta"),
     },
     {
-      label: "First confirmation",
-      hint: "The elder taps “Yes, I took it”.",
+      label: tr("check.confirm"),
+      hint: tr("check.confirmHint"),
       done: confirmed,
       tab: "Today",
-      cta: "See today",
+      cta: tr("check.confirmCta"),
     },
     {
-      label: "Share the doctor brief",
-      hint: "A one-page summary for the next visit.",
+      label: tr("check.brief"),
+      hint: tr("check.briefHint"),
       done: false,
       tab: "Safety & AI",
-      cta: "Open brief",
+      cta: tr("check.briefCta"),
     },
   ];
   const doneCount = steps.filter((x) => x.done).length;
@@ -50,11 +52,9 @@ function SetupChecklist({ state, go }: { state: State; go: (t: Tab) => void }) {
     <section aria-labelledby="setup-h" className="panel lg:col-span-2">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 id="setup-h" className="text-xl font-semibold">
-          Get your care circle ready
+          {tr("check.title")}
         </h2>
-        <p className="text-sm text-[var(--muted)]">
-          {doneCount} of {steps.length} done
-        </p>
+        <p className="text-sm text-[var(--muted)]">{tr("check.progress", { done: doneCount, total: steps.length })}</p>
       </div>
       <div
         className="mt-3 h-1.5 w-full rounded-full bg-stone-200"
@@ -77,7 +77,8 @@ function SetupChecklist({ state, go }: { state: State; go: (t: Tab) => void }) {
           >
             <div>
               <p className="font-semibold">
-                {i + 1}. {x.label} {x.done && <span className="text-sm font-normal text-[var(--ok)]">· Done</span>}
+                {i + 1}. {x.label}{" "}
+                {x.done && <span className="text-sm font-normal text-[var(--ok)]">· {tr("check.done")}</span>}
               </p>
               <p className="text-sm text-[var(--muted)]">{x.hint}</p>
             </div>
@@ -112,7 +113,8 @@ export function Today({
   const [dose, setDose] = useState("");
   const [why, setWhy] = useState("");
   const a = state.adherence;
-  const hello = greeting(istHour());
+  const { tr, dayPart } = useT();
+  const hello = tr(greetingKey(istHour()));
   const next = state.doseSlots.find((s) => s.status === "pending");
   const taken = state.doseSlots.filter((s) => s.status === "elder_confirmed").length;
   const firstName = state.me.name.split(" ")[0];
@@ -124,47 +126,43 @@ export function Today({
         aria-label={role === "elder" ? "Your next dose" : "Today at a glance"}
       >
         <p className="text-lg font-semibold">
-          {hello.hi} {firstName} · <span className="font-normal text-[var(--muted)]">{hello.en}</span>
+          {hello}, {firstName}
         </p>
         {next ? (
           <p className={role === "elder" ? "mt-2 text-2xl font-bold md:text-3xl" : "mt-2 text-xl font-semibold"}>
-            {role === "elder" ? "Next dose · agli dawai: " : `Next for ${state.household.elder_name}: `}
-            {next.medicine_name} at {time12(next.scheduled_at)}
+            {role === "elder" ? tr("today.nextDose") : tr("today.nextFor", { name: state.household.elder_name })}:{" "}
+            {next.medicine_name} {tr("today.at")} {time12(next.scheduled_at)}
             <span className="block text-base font-normal text-[var(--muted)]">
-              {dayPartLabel(next.scheduled_at)}
+              {dayPart(next.scheduled_at)}
               {next.instructions ? ` · ${next.instructions}` : ""}
             </span>
           </p>
         ) : (
           <p className="mt-2 text-xl font-semibold">
-            {state.doseSlots.length > 0 ? "All of today's doses are answered. Shabash!" : "No doses scheduled today."}
+            {state.doseSlots.length > 0 ? tr("today.allDone") : tr("today.noDoses")}
           </p>
         )}
         {state.doseSlots.length > 0 && (
-          <p className="mt-1 text-[var(--muted)]">
-            {taken} of {state.doseSlots.length} taken today
-          </p>
+          <p className="mt-1 text-[var(--muted)]">{tr("today.takenCount", { taken, total: state.doseSlots.length })}</p>
         )}
       </section>
       <section className="panel">
-        <h2 className="text-2xl font-semibold">Today&apos;s medicines</h2>
+        <h2 className="text-2xl font-semibold">{tr("today.medicines")}</h2>
         <div className="mt-4 space-y-3">
           {state.doseSlots.length === 0 && (
             <div className="rounded-2xl border border-dashed border-stone-300 p-8 text-center">
               <Pill size={36} className="mx-auto text-[var(--brand)]" aria-hidden="true" />
-              <p className="mt-3 text-lg font-semibold">No medicines for today yet</p>
+              <p className="mt-3 text-lg font-semibold">{tr("today.emptyTitle")}</p>
               <p className="mx-auto mt-1 max-w-sm text-[var(--muted)]">
-                {role === "elder"
-                  ? "Add your medicines, or ask family to suggest them — you accept each one."
-                  : "Suggest the first medicine. The elder accepts it, then it shows up here every day."}
+                {role === "elder" ? tr("today.emptyElder") : tr("today.emptyOther")}
               </p>
               <div className="mt-4 flex flex-wrap justify-center gap-2">
                 <button className="btn-primary" onClick={() => go("Medicines")}>
-                  <Pill size={18} aria-hidden="true" /> Add a medicine
+                  <Pill size={18} aria-hidden="true" /> {tr("today.addMedicine")}
                 </button>
                 {state.me.isOwner && (
                   <button className="btn-ghost" onClick={() => go("Care circle")}>
-                    <Users size={18} aria-hidden="true" /> Invite members
+                    <Users size={18} aria-hidden="true" /> {tr("today.inviteMembers")}
                   </button>
                 )}
               </div>
@@ -182,7 +180,7 @@ export function Today({
                     {slot.medicine_name}
                   </h3>
                   <p className={`text-[var(--muted)] ${role === "elder" ? "text-lg" : ""}`}>
-                    {time12(slot.scheduled_at)} · {dayPartLabel(slot.scheduled_at)}
+                    {time12(slot.scheduled_at)} · {dayPart(slot.scheduled_at)}
                     {slot.instructions ? ` · ${slot.instructions}` : ""}
                   </p>
                   <p className="mt-2">
