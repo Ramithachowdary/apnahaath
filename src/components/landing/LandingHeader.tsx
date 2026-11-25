@@ -4,13 +4,14 @@ import { useState } from "react";
 import { HandHeart, Menu, X } from "lucide-react";
 import { LanguageSelect, useT } from "../app/lang";
 import { NAV } from "./content";
+import { ThemeToggle } from "../app/ThemeToggle";
 
 /** Sticky header: logo, section links, language, sign-in and a compact menu below 1024px. */
 export function LandingHeader({ signupHref, signinHref }: { signupHref: string; signinHref: string }) {
   const { tr } = useT();
   const [menuOpen, setMenuOpen] = useState(false);
   return (
-    <header className="sticky top-0 z-30 border-b border-stone-200 bg-white/95 backdrop-blur">
+    <header className="sticky top-0 z-30 border-b backdrop-blur" style={{ background: "var(--card)", borderColor: "var(--line)" }}>
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-3">
         <a href="#top" className="flex items-center gap-2 text-lg font-bold text-[var(--brand)]">
           <HandHeart size={24} aria-hidden="true" /> ApnaHaath
@@ -26,6 +27,7 @@ export function LandingHeader({ signupHref, signinHref }: { signupHref: string; 
           ))}
         </nav>
         <div className="flex items-center gap-2">
+          <ThemeToggle />
           <LanguageSelect className="hidden sm:flex" />
           <span className="hidden sm:block">
             <a className="btn-ghost whitespace-nowrap" href={signinHref}>
@@ -48,7 +50,7 @@ export function LandingHeader({ signupHref, signinHref }: { signupHref: string; 
         </div>
       </div>
       {menuOpen && (
-        <nav id="mobile-menu" aria-label="Menu" className="border-t border-stone-200 bg-white lg:hidden">
+        <nav id="mobile-menu" aria-label="Menu" className="border-t lg:hidden" style={{ background: "var(--card)", borderColor: "var(--line)" }}>
           <ul className="mx-auto grid max-w-6xl px-5 py-2">
             {NAV.map((n) => (
               <li key={n.href}>

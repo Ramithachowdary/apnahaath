@@ -50,7 +50,7 @@ export default function Landing({
         <FaqSection />
       </main>
 
-      <footer className="border-t border-stone-200 bg-white">
+      <footer className="border-t" style={{ background: "var(--card)", borderColor: "var(--line)" }}>
         <div className="mx-auto flex max-w-6xl flex-col gap-4 px-5 py-8 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="flex items-center gap-2 font-bold text-[var(--brand)]">
