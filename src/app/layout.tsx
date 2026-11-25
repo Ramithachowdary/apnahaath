@@ -43,7 +43,10 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
 };
 
-export const viewport: Viewport = { themeColor: "#0f5c4c", width: "device-width", initialScale: 1 };
+export const viewport: Viewport = { themeColor: "#7563D8", width: "device-width", initialScale: 1 };
+
+/** Inline script: apply saved theme before first paint to prevent flash. */
+const themeScript = `(function(){try{var t=localStorage.getItem('ah-theme');document.documentElement.setAttribute('data-theme',t==='dark'?'dark':'light');}catch(e){}})();`;
 
 export default function RootLayout({
   children,
@@ -52,6 +55,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      {/* eslint-disable-next-line @next/next/no-before-interactive-script-component */}
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
       <body className={`${notoSans.variable} ${notoDevanagari.variable} antialiased`}>{children}</body>
     </html>
   );

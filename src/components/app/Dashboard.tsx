@@ -10,6 +10,7 @@ import { AppFooter, DisplayToggles } from "./ui";
 import { LanguageSelect, useT } from "./lang";
 import type { MsgKey } from "@/lib/i18n";
 import { Today } from "./Today";
+import { ThemeToggle } from "./ThemeToggle";
 
 /** Shown for the moment a tab's code is loading. */
 const TabLoading = () => (
@@ -68,7 +69,7 @@ export function Dashboard({
   const view = (SUBTABS[tab] ? sub[tab] : tab) as View;
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[272px_1fr]">
-      <aside className="no-print sticky top-0 hidden h-screen flex-col border-r border-stone-200 bg-white px-4 py-6 lg:flex">
+      <aside className="no-print sticky top-0 hidden h-screen flex-col border-r px-4 py-6 lg:flex" style={{ background: "var(--card)", borderColor: "var(--line)" }}>
         <p className="flex items-center gap-2 px-2 text-lg font-bold text-[var(--brand)]">
           <HandHeart size={24} aria-hidden="true" /> ApnaHaath
         </p>
@@ -95,6 +96,7 @@ export function Dashboard({
         <div className="mt-auto space-y-3">
           <LanguageSelect className="px-2" />
           <DisplayToggles />
+          <ThemeToggle />
           <button className="nav-item" onClick={onLogout}>
             <LogOut size={20} aria-hidden="true" /> {tr("app.signOut")}
           </button>
@@ -102,7 +104,7 @@ export function Dashboard({
       </aside>
 
       <div className="min-w-0">
-        <header className="no-print flex items-center justify-between gap-3 border-b border-stone-200 bg-white px-4 py-3 lg:hidden">
+        <header className="no-print flex items-center justify-between gap-3 border-b px-4 py-3 lg:hidden" style={{ background: "var(--card)", borderColor: "var(--line)" }}>
           <div>
             <p className="flex items-center gap-1.5 font-bold text-[var(--brand)]">
               <HandHeart size={20} aria-hidden="true" /> ApnaHaath
@@ -112,6 +114,7 @@ export function Dashboard({
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <ThemeToggle />
             <LanguageSelect />
             <button className="btn-ghost px-3" onClick={onLogout} aria-label={tr("app.signOut")}>
               <LogOut size={18} aria-hidden="true" />
@@ -127,7 +130,8 @@ export function Dashboard({
             <div
               role="tablist"
               aria-label={`${tab} sections`}
-              className="no-print mb-6 flex flex-wrap gap-1 border-b border-stone-200"
+              className="no-print mb-6 flex flex-wrap gap-1 border-b"
+              style={{ borderColor: "var(--line)" }}
             >
               {SUBTABS[tab].map((v) => {
                 const Icon = SUB_ICON[v];

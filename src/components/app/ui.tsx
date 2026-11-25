@@ -3,6 +3,7 @@
 /** Small shared UI pieces: status chip, time field, display toggles, footer, share and calendar buttons. */
 import { useEffect, useState } from "react";
 import { HandHeart, LogOut } from "lucide-react";
+import { ThemeToggle } from "./ThemeToggle";
 import { googleCalendarUrl } from "@/lib/calendar";
 import { formatTime12 } from "@/lib/time";
 import { mapsSearchUrl } from "./format";
@@ -58,7 +59,7 @@ export function TimeField({
 
 export function AppFooter({ city }: { city?: string | null }) {
   return (
-    <footer className="mt-12 border-t border-stone-200 pt-5 text-sm text-[var(--muted)]">
+    <footer className="mt-12 border-t pt-5 text-sm" style={{ borderColor: "var(--line)", color: "var(--muted)" }}>
       <p className="font-semibold text-[var(--danger)]">
         Emergency: call <a href="tel:108">108</a> or go to the nearest hospital.
       </p>
@@ -127,6 +128,7 @@ export function DisplayToggles() {
       >
         {contrast ? "Normal contrast" : "High contrast"}
       </button>
+      <ThemeToggle />
     </div>
   );
 }
@@ -137,11 +139,14 @@ export function TopBar({ me, onLogout }: { me: Me | null; state: State | null; o
       <p className="flex items-center gap-2 text-lg font-bold text-[var(--brand)]">
         <HandHeart size={24} aria-hidden="true" /> ApnaHaath
       </p>
-      {me?.authenticated && (
-        <button className="btn-ghost" onClick={onLogout}>
-          <LogOut size={18} aria-hidden="true" /> Sign out
-        </button>
-      )}
+      <div className="flex items-center gap-2">
+        <ThemeToggle />
+        {me?.authenticated && (
+          <button className="btn-ghost" onClick={onLogout}>
+            <LogOut size={18} aria-hidden="true" /> Sign out
+          </button>
+        )}
+      </div>
     </header>
   );
 }

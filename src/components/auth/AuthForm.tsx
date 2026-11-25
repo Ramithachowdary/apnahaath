@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { HandHeart, Mail } from "lucide-react";
+import { ThemeToggle } from "../app/ThemeToggle";
 
 export type AuthFn = (
   path: string,
@@ -30,6 +31,8 @@ export default function AuthForm({
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [age, setAge] = useState("");
+  const [gender, setGender] = useState("");
   const [verifyFor, setVerifyFor] = useState<string | null>(null);
   const [code, setCode] = useState("");
   const [cooldown, setCooldown] = useState(0);
@@ -57,16 +60,19 @@ export default function AuthForm({
   const q = invite ? `?invite=${encodeURIComponent(invite)}` : "";
   return (
     <div className="min-h-screen">
-      <header className="border-b border-stone-200/70 bg-white">
+      <header className="border-b" style={{ background: "var(--card)", borderColor: "var(--line)" }}>
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-3">
           <Link href="/" className="flex items-center gap-2 text-lg font-bold text-[var(--brand)]">
             <HandHeart size={24} /> ApnaHaath
           </Link>
-          {toggles}
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            {toggles}
+          </div>
         </div>
       </header>
       <main id="top">
-        <section id="account" className="border-y border-stone-200 bg-white py-16">
+        <section id="account" className="border-y py-16" style={{ background: "var(--bg)", borderColor: "var(--line)" }}>
           <div className="mx-auto grid max-w-6xl items-center gap-10 px-5 md:grid-cols-2">
             <div>
               {mode === "signup" && (
@@ -241,6 +247,43 @@ export default function AuthForm({
                         minLength={mode === "signup" ? 8 : 1}
                       />
                     </div>
+                    {mode === "login" && (
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label htmlFor="auth-age" className="mb-1 block text-sm font-semibold">
+                            Age <span className="font-normal text-[var(--muted)]">(optional)</span>
+                          </label>
+                          <input
+                            id="auth-age"
+                            className="input"
+                            type="number"
+                            min={1}
+                            max={120}
+                            placeholder="e.g. 68"
+                            value={age}
+                            onChange={(e) => setAge(e.target.value)}
+                            autoComplete="off"
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="auth-gender" className="mb-1 block text-sm font-semibold">
+                            Gender <span className="font-normal text-[var(--muted)]">(optional)</span>
+                          </label>
+                          <select
+                            id="auth-gender"
+                            className="input"
+                            value={gender}
+                            onChange={(e) => setGender(e.target.value)}
+                          >
+                            <option value="">Select…</option>
+                            <option value="female">Female</option>
+                            <option value="male">Male</option>
+                            <option value="non-binary">Non-binary</option>
+                            <option value="prefer-not-to-say">Prefer not to say</option>
+                          </select>
+                        </div>
+                      </div>
+                    )}
                     <button className="btn-primary w-full text-lg" disabled={busy} type="submit">
                       {busy ? "Please wait…" : mode === "signup" ? "Create account" : "Sign in"}
                     </button>
